@@ -23,6 +23,7 @@ interface PageProps {
 interface Order {
   id: number;
   order_number: string;
+  order_reference_number: string;
   order_type: string;
   order_time: string;
   customer_id: string;
@@ -94,6 +95,7 @@ const Page: React.FC<PageProps> = ({ params }) => {
   const orderData = order
     ? [
         { key: "Order Number", value: order.order_number },
+        { key: "Order Ref. Number", value: order.order_reference_number },
         { key: "Order Type", value: order.order_type },
         { key: "Order Status", value: order.task_status },
         { key: "Vehicle Type", value: order.vehicle_title },

@@ -58,13 +58,13 @@ const navigation: NavItem[] = [
   },
   {
     title: "Address Book",
-    href: "/my-address",
+    href: "/addresses",
     icon: MapPinHouse,
   },
 
   {
     title: "Invoice List",
-    href: "/my-invoice",
+    href: "/invoices",
     icon: IconReceipt,
   },
   {

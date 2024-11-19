@@ -20,6 +20,7 @@ type TabType = "on_progress" | "completed" | "scheduled" | "cancelled";
 interface Order {
   id: number;
   order_number: string;
+  order_reference_number: string;
   order_type: string;
   order_time: string;
   customer_id: string;
@@ -35,10 +36,29 @@ interface Order {
   cash_collected: string;
   detailPageLink: string;
   date_time: string;
-  pickup: string;
-  drop_off: string;
-  drop_off_two: string;
-  driver: string;
+  pickup: LocationDetails;
+  drop_off: LocationDetails;
+  drop_off_two?: LocationDetails;
+  driver?: DriverDetails;
+}
+
+interface LocationDetails {
+  id: number;
+  address: string;
+  short_name: string;
+  flat_no?: string;
+  city: string;
+  direction?: string;
+}
+
+interface DriverDetails {
+  id: number;
+  name: string;
+  phone_number: string;
+  image_url: string;
+  avg_rating?: string;
+  total_reviews?: string;
+  rating?: string;
 }
 interface PaginationLink {
   url: string | null;
@@ -135,7 +155,7 @@ export default function Page() {
             Scheduled
           </TabsTrigger>
           <TabsTrigger className="w-1/4" value="cancelled">
-            Cancelled
+            Canceled
           </TabsTrigger>
         </TabsList>
         <TabsContent value={activeTab}>
@@ -144,7 +164,13 @@ export default function Page() {
               <SkeletonOrderCard key={index} />
             ))
           ) : orders.length > 0 ? (
-            orders.map((order) => <OrderCard key={order.id} order={order} />)
+            orders.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onRefresh={() => fetchOrders(activeTab)}
+              />
+            ))
           ) : (
             <p className="text-center text-gray-500 mt-4">
               No orders available.
