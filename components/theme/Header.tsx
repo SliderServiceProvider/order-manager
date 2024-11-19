@@ -1,0 +1,111 @@
+import React from "react";
+import { Bell, User, Settings, LogOut, Mail, Plus, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { IconMenuDeep } from "@tabler/icons-react";
+// Import the custom hook to access Redux state and dispatch
+import { useAppSelector, useAppDispatch } from "@/hooks/useAuth";
+import { logout } from "@/store/auth/authSlice";
+import { useRouter } from "next/navigation";
+
+interface HeaderProps {
+  setSidebarOpen: (open: boolean) => void;
+}
+
+export function Header({ setSidebarOpen }: HeaderProps) {
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+  const userName = useAppSelector((state) => state.auth.user?.name); // Access user name from Redux state
+
+  // Handle logout by dispatching the logout action and redirecting to the login page
+  const handleLogout = () => {
+    dispatch(logout());
+    localStorage.removeItem("token"); // Remove token from localStorage
+    router.push("/"); // Redirect to login or home page
+  };
+
+  return (
+    <header className="header-wrapper sticky top-0 z-40 flex h-16 items-center justify-between border-b bg-background px-4">
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={() => setSidebarOpen(true)}
+        >
+          <IconMenuDeep className="h-6 w-6" />
+          <span className="sr-only">Open sidebar</span>
+        </Button>
+        {/* <h2 className="text-lg font-semibold lg:hidden uppercase">Slider Enterprise</h2> */}
+      </div>
+      <div className="flex items-center gap-2">
+        {/* <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Bell className="h-5 w-5" />
+              <span className="sr-only">Notifications</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80">
+            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <Mail className="mr-2 h-4 w-4" />
+              <span>New message from John Doe</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Plus className="mr-2 h-4 w-4" />
+              <span>New order received</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Check className="mr-2 h-4 w-4" />
+              <span>Task completed: Update inventory</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-center">
+              View all notifications
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu> */}
+
+        <div className="flex gap-1">
+          <User className="h-5 w-5" />
+          <span className="text-sm">{userName}</span>
+        </div>
+
+        {/* <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost">
+              <User className="h-5 w-5" />
+              <span className="text-sm">{userName}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu> */}
+      </div>
+    </header>
+  );
+}
