@@ -6,6 +6,7 @@ import {
   IconPhone,
   IconBrandWhatsapp,
   IconMessage,
+  IconStarFilled,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { Button } from "../ui/button";
@@ -21,9 +22,10 @@ import api from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import FeedbackForm from "./FeedbackForm";
 interface Order {
   id: number;
-  order_number: string;
+  order_number: number;
   order_reference_number: string;
   order_type: string;
   order_time: string;
@@ -35,6 +37,7 @@ interface Order {
   payable_amount: string;
   order_cost: string;
   status: string;
+  order_rating: string;
   created_at: string;
   cod_amount: string;
   cash_collected: string;
@@ -81,6 +84,7 @@ export default function OrderCard({
   const [selectedReason, setSelectedReason] = useState(""); // Selected dropdown value
   const [customReason, setCustomReason] = useState(""); // Custom reason from input
   const [showCustomInput, setShowCustomInput] = useState(false); // Toggle custom input visibility
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false); // Toggle feedback form
   const [loading, setLoading] = useState(false); // Loading state for API calls
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -122,7 +126,7 @@ export default function OrderCard({
       });
       const responseData = response.data;
       // alert("Order cancellation submitted successfully.");
-      if (responseData.status=="success") {
+      if (responseData.status == "success") {
         toast({
           className: cn("bg-green-500 text-white"),
           title: "Success",
@@ -147,6 +151,48 @@ export default function OrderCard({
         title: "Uh oh! Something went wrong.",
         description: errorMessage,
         action: <ToastAction altText="Try again">Try again</ToastAction>,
+      });
+    }
+  };
+
+  const handleFeedbackSubmit = async (
+    orderNumber: number,
+    rating: number,
+    comment: string
+  ) => {
+    try {
+      const payload = {
+        order_number: orderNumber,
+        rating,
+        comment,
+      };
+
+      // Replace with actual API endpoint
+      const response = await api.post("/rating/rate-driver", payload);
+      const responseData = response.data;
+      if (responseData.status == "Success") {
+        toast({
+          className: cn("bg-green-500 text-white"),
+          title: "Success",
+          description: responseData.message,
+          variant: "default",
+        });
+        setShowFeedbackForm(false);
+        onRefresh(); // Trigger refresh in the parent component
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description:
+            responseData.message ||
+            "Failed to submit feedback. Please try again.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Submission failed",
+        description: "Failed to submit feedback. Please try again.",
       });
     }
   };
@@ -227,46 +273,78 @@ export default function OrderCard({
             </div>
           )}
         </div>
-
-        {/* Driver Information */}
-        {order.driver && (
-          <div className="flex items-center justify-between border-t py-4">
-            <div className="flex items-center gap-4">
-              <div className="rounded-full bg-gray-200 w-12 h-12 flex items-center justify-center">
-                <img
-                  src={order.driver.image_url}
-                  className="rounded-full w-12 h-12 object-cover"
-                  alt="slider driver"
-                />
-              </div>
-              <div>
-                <p className="text-gray-800">{order.driver.name}</p>
-                <p className="text-gray-500 text-sm">
-                  <span className="text-yellow-500">★</span>{" "}
-                  {order.driver.avg_rating} ({order.driver.total_reviews})
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <IconMessage className="text-gray-500 cursor-pointer" size={24} />
-              <IconPhone className="text-gray-500 cursor-pointer" size={24} />
-              <IconBrandWhatsapp
-                className="text-gray-500 cursor-pointer"
-                size={24}
+      </Link>
+      {/* Driver Information */}
+      {order.driver && (
+        <div className="flex items-center justify-between border-t py-4">
+          <div className="flex items-center gap-4">
+            <div className="rounded-full bg-gray-200 w-12 h-12 flex items-center justify-center">
+              <img
+                src={order.driver.image_url}
+                className="rounded-full w-12 h-12 object-cover"
+                alt="slider driver"
               />
             </div>
+            <div>
+              <p className="text-gray-800">{order.driver.name}</p>
+              <p className="text-gray-500 text-sm">
+                <span className="text-yellow-500">★</span>{" "}
+                {order.driver.avg_rating} ({order.driver.total_reviews})
+              </p>
+            </div>
           </div>
-        )}
-      </Link>
+          <div className="flex items-center gap-4">
+            {order.order_status === "Completed" ? (
+              <>
+                {order.order_rating === null ? (
+                  // Show feedback button when no rating exists
+                  <Button
+                    className="bg-blue-500"
+                    onClick={() => setShowFeedbackForm(true)}
+                  >
+                    Leave Feedback
+                  </Button>
+                ) : (
+                  // Optional: Display feedback value (remove this block if not needed)
+                  <div className="feedback_info_rep">
+                    <p className="text-gray-500 mb-1">Feedback</p>
+                    <p className="flex items-center">
+                      <IconStarFilled className="text-yellow-500 mr-1" />
+                      <span>{order.order_rating}</span>
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              (order.order_status === "Assigned" ||
+                order.order_status === "Un Assigned") && (
+                // Display icons for Assigned or Un Assigned status
+                <>
+                  <IconMessage
+                    className="text-gray-500 cursor-pointer"
+                    size={24}
+                  />
+                  <IconPhone
+                    className="text-gray-500 cursor-pointer"
+                    size={24}
+                  />
+                  <IconBrandWhatsapp
+                    className="text-gray-500 cursor-pointer"
+                    size={24}
+                  />
+                </>
+              )
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Order Actions */}
-      <div className="order-action border-t flex justify-end gap-4 pt-4">
-        {order.order_status === "Completed" && (
-          <Button className="bg-blue-500">Leave Feedback</Button>
-        )}
+      <div className="order-action flex justify-end gap-4 pt-4">
         {order.order_status !== "Completed" &&
           order.order_status !== "Canceled" && (
             <Button
+              type="button"
               className="bg-red-500"
               onClick={(e) => {
                 e.preventDefault();
@@ -277,7 +355,7 @@ export default function OrderCard({
               Cancel Order
             </Button>
           )}
-        <Button className="bg-black">Track Order</Button>
+        {/* <Button className="bg-black">Track Order</Button> */}
       </div>
 
       {/* Cancel Order Form */}
@@ -346,6 +424,14 @@ export default function OrderCard({
             </>
           )}
         </div>
+      )}
+      {/* Feedback Form */}
+      {showFeedbackForm && (
+        <FeedbackForm
+          orderNumber={order.order_number}
+          onClose={() => setShowFeedbackForm(true)}
+          onSubmit={handleFeedbackSubmit}
+        />
       )}
     </div>
   );
