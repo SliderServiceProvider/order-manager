@@ -19,15 +19,13 @@ import {
 } from "../ui/pagination";
 import { Button } from "../ui/button";
 
-interface InvoiceProps {
+interface InvoiceOrderProps {
   id: number;
-  invoice_number: string;
-  amount: string;
-  status?: string;
-  invoice_created_at: string;
-  view_url?: string;
-  download_url?: string;
-  detail_page_url?: string;
+  order_number: string;
+  order_reference_number: string;
+  vehicle_type?: string;
+  orderTime: string;
+  order_pricing?: string;
 }
 
 interface PaginationLink {
@@ -43,8 +41,14 @@ interface PaginationMetadata {
   current_page: number;
 }
 
-export default function InvoiceList() {
-  const [invoices, setInvoices] = useState<InvoiceProps[]>([]);
+export default function InvoiceOrder({
+  isShowOrderRefNo,
+  invoiceId,
+}: {
+  isShowOrderRefNo: boolean;
+  invoiceId: number;
+}) {
+  const [orders, setOrders] = useState<InvoiceOrderProps[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -72,10 +76,10 @@ export default function InvoiceList() {
     setLoading(true);
     try {
       const response = await api.get(
-        `/order-manager/getInvoices?page=${pagination.current_page}&search=${debouncedSearch}`
+        `/order-manager/getInvoiceOrders?invoice_id=${invoiceId}&page=${pagination.current_page}&search=${debouncedSearch}`
       );
       const data = response.data;
-      setInvoices(data.data.data);
+      setOrders(data.data.data);
       setPagination((prev) => ({
         prev_page_url: data.data.prev_page_url,
         next_page_url: data.data.next_page_url,
@@ -121,8 +125,8 @@ export default function InvoiceList() {
         {/* Search Input */}
         <input
           type="text"
-          className="border rounded px-4 py-1.5 w-3/12"
-          placeholder="Search by invoice number or amount"
+          className="border rounded px-4 py-1.5 w-4/3"
+          placeholder="Search by order number"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -140,62 +144,43 @@ export default function InvoiceList() {
         <table className="w-full border-collapse border border-gray-300">
           <thead>
             <tr>
-              <th className="border px-4 py-2">Invoice #</th>
-              <th className="border px-4 py-2">Amount</th>
-              <th className="border px-4 py-2">Deliveries</th>
-              <th className="border px-4 py-2">Status</th>
-              <th className="border px-4 py-2">Created At</th>
-              <th className="border px-4 py-2">Actions</th>
+              <th className="border p-4">Order Number #</th>
+              {isShowOrderRefNo && (
+                <th className="border px-4 py-2">Order Reference Number</th>
+              )}
+              <th className="border p-4">Vehicle Type</th>
+              <th className="border p-4">Order Time</th>
+              <th className="border p-4">Order Value</th>
+              <th className="border p-4"></th>
             </tr>
           </thead>
           <tbody>
-            {invoices.length > 0 ? (
-              invoices.map((invoice) => (
-                <tr key={invoice.id}>
+            {orders.length > 0 ? (
+              orders.map((order) => (
+                <tr key={order.id}>
                   <td className="border px-4 py-2 text-center">
-                    {invoice.invoice_number}
+                    {order.order_number}
+                  </td>
+                  {isShowOrderRefNo && (
+                    <td className="border px-4 py-2 text-center">
+                      {order.order_reference_number || "N/A"}
+                    </td>
+                  )}
+                  <td className="border px-4 py-2 text-center">
+                    <span className="font-medium">{order.vehicle_type}</span>
                   </td>
                   <td className="border px-4 py-2 text-center">
-                    <span className="font-medium">AED {invoice.amount}</span>
+                    {order.orderTime}
                   </td>
                   <td className="border px-4 py-2 text-center">
-                    <span className="font-medium">{invoice.amount}</span>
-                  </td>
-                  <td className="border px-4 py-2 text-center">
-                    <span
-                      className={`px-3 py-1 rounded-full ${
-                        invoice.status === "paid"
-                          ? "bg-green-100 text-green-500"
-                          : "bg-red-100 text-red-500"
-                      }`}
-                    >
-                      {invoice.status}
-                    </span>
-                  </td>
-                  <td className="border px-4 py-2 text-center">
-                    {invoice.invoice_created_at}
+                    {order.order_pricing}
                   </td>
                   <td className="flex border px-4 py-2 gap-2 justify-center">
                     <a
-                      href={`/invoices/invoice-details/${invoice.invoice_number}`}
-                      rel="noopener noreferrer"
+                      href={`/orders/order-details/${order.order_number}`}
                       className="text-green-500 hover:underline rounded-md bg-green-100 p-1"
                     >
                       <IconEye />
-                    </a>
-                    <a
-                      href={invoice.view_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-red-500 hover:underline rounded-md bg-red-100 p-1"
-                    >
-                      <IconFileTypePdf />
-                    </a>
-                    <a
-                      href={invoice.download_url}
-                      className="text-white hover:underline rounded-md bg-black p-1"
-                    >
-                      <IconDownload />
                     </a>
                   </td>
                 </tr>
@@ -203,7 +188,7 @@ export default function InvoiceList() {
             ) : (
               <tr>
                 <td colSpan={5} className="text-center py-4">
-                  No invoices found.
+                  No orders found.
                 </td>
               </tr>
             )}

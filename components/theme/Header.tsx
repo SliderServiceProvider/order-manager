@@ -9,11 +9,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { IconMenuDeep } from "@tabler/icons-react";
+import { IconCubePlus, IconMenuDeep } from "@tabler/icons-react";
 // Import the custom hook to access Redux state and dispatch
 import { useAppSelector, useAppDispatch } from "@/hooks/useAuth";
 import { logout } from "@/store/auth/authSlice";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface HeaderProps {
   setSidebarOpen: (open: boolean) => void;
@@ -45,7 +46,10 @@ export function Header({ setSidebarOpen }: HeaderProps) {
         </Button>
         {/* <h2 className="text-lg font-semibold lg:hidden uppercase">Slider Enterprise</h2> */}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-5">
+        <Link href="/place-order" className="flex items-center gap-2 bg-primary p-2 rounded-lg">
+          <IconCubePlus /> Place Order
+        </Link>
         {/* <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">

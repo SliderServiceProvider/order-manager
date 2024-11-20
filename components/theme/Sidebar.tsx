@@ -77,11 +77,11 @@ const navigation: NavItem[] = [
     href: "/chat",
     icon: IconMessage,
   },
-  {
-    title: "Account Settings",
-    href: "/account-settings",
-    icon: IconUserCog,
-  },
+  // {
+  //   title: "Account Settings",
+  //   href: "/account-settings",
+  //   icon: IconUserCog,
+  // },
 ];
 
 interface SidebarProps {
