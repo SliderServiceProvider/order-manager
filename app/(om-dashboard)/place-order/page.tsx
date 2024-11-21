@@ -22,6 +22,9 @@ import RouteMap from "@/components/googlemap/RouteMap";
 import Loader from "@/components/place-order/Loader";
 import { flushSync } from "react-dom";
 
+import { toast, useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+
 type Location = {
   lat: number;
   lng: number;
@@ -165,7 +168,7 @@ export default function Component() {
   // Load script in the parent
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: googleMapAPIKey,
-    libraries: ["places", "geometry"], // Libraries to load
+    // libraries: ["places", "geometry"],
   });
 
   const steps = [
@@ -195,30 +198,37 @@ export default function Component() {
   };
 
   const handleNext = async () => {
-    if (currentStep === 2) {
-      // Show loader immediately using flushSync
-      flushSync(() => setLoadingPackageScreen(true));
+    setLoadingPackageScreen(true);
+    const type = currentStep === 1 ? "pickup" : "dropoff"; // Determine if it's pickup or dropoff
 
-      try {
-        console.log("Fetching vehicles...");
-        await fetchVehicles(); // Perform async operation
-        console.log("Vehicles fetched successfully");
-      } catch (error) {
-        console.error("Error fetching vehicles:", error);
-      } finally {
-        // Hide loader after async operation
-        flushSync(() => setLoadingPackageScreen(false));
-      }
+    // Address validation
+    if (!formData[type].address.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Submission failed",
+        description: `Please select a ${type} address before proceeding.`,
+      });
+      return; // Prevent navigation to the next step
+    }
+    // Building validation only for dropoff
+    if (type === "dropoff" && !formData.dropoff.building.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Submission failed",
+        description: "Please enter a valid building number for the dropoff.",
+      });
+      return;
     }
 
+    if (currentStep === 2) {
+      setLoadingPackageScreen(true);
+      try {
+        await fetchVehicles(); // Perform async operation
+      } catch (error) {}
+    }
     // Proceed to the next step
     setCurrentStep((prev) => Math.min(prev + 1, 3));
   };
-
-// useEffect(() => {
-//   console.log("loadingPackageScreen state changed:", loadingPackageScreen);
-// }, [loadingPackageScreen]);
-
 
   const handleBack = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
@@ -241,7 +251,8 @@ export default function Component() {
         ],
       });
       const data = response.data;
-
+      // Hide loader after async operation
+      setLoadingPackageScreen(false);
       setVehicles(data.data.vehicles);
       setDistance(data.data.total_distance);
       setDuration(data.data.total_duration);
@@ -271,6 +282,26 @@ export default function Component() {
   };
 
   const handleSubmit = async () => {
+    console.log(formData.package.vehicle_type);
+    
+    // Check receiver number is empty or not
+    if (!selectedVehicle) {
+      toast({
+        variant: "destructive",
+        title: "Submission failed",
+        description: "Please select a package.",
+      });
+      return;
+    }
+    // Check receiver number is empty or not
+    if (!formData.package.receiver_phone_number.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Submission failed",
+        description: "Please enter a recipient number.",
+      });
+      return;
+    }
     const payload = {
       service_type: 1, // Assuming service type is predefined
       vehicle_type: selectedVehicle?.id || null, // Selected vehicle ID
@@ -350,10 +381,6 @@ export default function Component() {
       case 2: {
         const type = currentStep === 1 ? "pickup" : "dropoff";
 
-        // const onLoad = (mapInstance: google.maps.Map) => {
-        //   mapRef.current = mapInstance;
-        // };
-
         const onLoad = (mapInstance: google.maps.Map) => {
           mapRef.current = mapInstance;
           console.log("Map loaded and mapRef set:", mapRef.current);
@@ -361,7 +388,6 @@ export default function Component() {
 
         const handleMapIdle = async (type: "pickup" | "dropoff") => {
           if (!mapIsMoving) return; // Prevent redundant calls when the map is not being moved
-          console.log("onIdle triggered for:", type);
 
           if (mapRef.current) {
             const center = mapRef.current.getCenter();
@@ -371,8 +397,6 @@ export default function Component() {
                 lat: center.lat(),
                 lng: center.lng(),
               };
-
-              console.log("New location from map center:", newLocation);
 
               // Update location in form data
               setFormData((prev) => ({
@@ -399,11 +423,6 @@ export default function Component() {
                   address: address || "Unknown Location",
                 },
               }));
-
-              console.log(
-                `${type.charAt(0).toUpperCase() + type.slice(1)} updated:`,
-                { location: newLocation, address }
-              );
             } else {
               console.warn("Failed to get map center");
             }
@@ -417,6 +436,7 @@ export default function Component() {
               <div className="space-y-2">
                 <Label htmlFor={`${type}-address`}>Address</Label>
                 <Input
+                  className="h-11"
                   readOnly
                   id={`${type}-address`}
                   placeholder="Select location"
@@ -447,6 +467,7 @@ export default function Component() {
                   <span className="italic text-gray-500">(optional)</span>
                 </Label>
                 <Input
+                  className="h-11"
                   id={`${type}-building`}
                   placeholder="Enter building details"
                   value={formData[type].building}
@@ -589,6 +610,7 @@ export default function Component() {
                       Receiver Number
                     </Label>
                     <Input
+                      className="h-11"
                       id="receiver_phone_number"
                       placeholder="Required format 05XXXXXXXX"
                       value={formData.package.receiver_phone_number || ""}
@@ -650,6 +672,7 @@ export default function Component() {
                       <span className="italic text-gray-500">(optional)</span>
                     </Label>
                     <Input
+                      className="h-11"
                       id="order_reference_number"
                       placeholder="Enter order reference number"
                       value={formData.package.order_reference_number || ""} // Controlled input
@@ -707,7 +730,7 @@ export default function Component() {
                     <div>
                       <span className="text-gray-500">Delivery Fee</span>
                       <p>
-                        AED{" "}
+                        AED
                         {selectedVehicle ? selectedVehicle.delivery_fee : "0"}
                       </p>
                     </div>
@@ -745,7 +768,7 @@ export default function Component() {
         {steps.map((step) => (
           <div
             key={step.id}
-            className={`flex items-center ${
+            className={`flex flex-col items-center ${
               currentStep >= step.id ? "text-black" : "text-muted-foreground"
             }`}
           >
@@ -761,7 +784,7 @@ export default function Component() {
             </div>
             {step.id < steps.length && (
               <div
-                className={`h-px w-12 mx-2 ${
+                className={`h-1 w-20 mx-2 ${
                   currentStep > step.id ? "bg-primary" : "bg-muted"
                 }`}
               />
@@ -772,6 +795,7 @@ export default function Component() {
       <Card className="py-6">
         <CardContent>{renderStep()}</CardContent>
       </Card>
+
       <div className="flex gap-4">
         <Button
           className="bg-primary text-black w-[250px]"

@@ -5,9 +5,9 @@ const Loader = ({ isVisible }: { isVisible: boolean }) => {
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center bg-gray-100 z-[9999]"
+      className="fixed inset-0 flex items-center justify-center bg-gray-500 z-[9999]"
       style={{
-        backgroundColor: "rgba(0,0,0,0.5)",
+        backgroundColor: "rgba(0,0,0,0.9)",
         position: "fixed",
         top: 0,
         left: 0,
@@ -17,7 +17,7 @@ const Loader = ({ isVisible }: { isVisible: boolean }) => {
     >
       <div className="text-center">
         <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-blue-500 font-bold">Loading...</p>
+        <p className="text-blue-500 font-bold">fetching package list...</p>
       </div>
     </div>
   );

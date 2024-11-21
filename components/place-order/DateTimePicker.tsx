@@ -70,7 +70,7 @@ export function DateTimePicker({
               id="date"
               variant={"outline"}
               className={cn(
-                "w-[280px] justify-start text-left font-normal",
+                "w-[280px] h-11 justify-start text-left font-normal",
                 !date && "text-muted-foreground"
               )}
             >
@@ -94,7 +94,7 @@ export function DateTimePicker({
               id="time"
               variant={"outline"}
               className={cn(
-                "w-[280px] justify-start text-left font-normal",
+                "w-[280px] h-11 justify-start text-left font-normal",
                 !time && "text-muted-foreground"
               )}
               disabled={!date}
