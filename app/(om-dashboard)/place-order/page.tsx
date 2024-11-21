@@ -19,6 +19,8 @@ import { DateTimePicker } from "@/components/place-order/DateTimePicker";
 import { format } from "date-fns";
 import { getCurrentLocation } from "@/utils/locationHelper";
 import RouteMap from "@/components/googlemap/RouteMap";
+import Loader from "@/components/place-order/Loader";
+import { flushSync } from "react-dom";
 
 type Location = {
   lat: number;
@@ -72,6 +74,7 @@ interface DeliverySummary {
 
 export default function Component() {
   const [loading, setLoading] = useState(true);
+  const [loadingPackageScreen, setLoadingPackageScreen] = useState(false);
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState<string | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -92,7 +95,7 @@ export default function Component() {
 
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [selectedTip, setSelectedTip] = useState<number | "custom">(5);
+  const [selectedTip, setSelectedTip] = useState<number | "custom">(0);
   const [customTip, setCustomTip] = useState<string>("");
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
@@ -192,14 +195,30 @@ export default function Component() {
   };
 
   const handleNext = async () => {
-    // If moving from Drop Off Address to Package screen, fetch vehicles
     if (currentStep === 2) {
-      await fetchVehicles();
+      // Show loader immediately using flushSync
+      flushSync(() => setLoadingPackageScreen(true));
+
+      try {
+        console.log("Fetching vehicles...");
+        await fetchVehicles(); // Perform async operation
+        console.log("Vehicles fetched successfully");
+      } catch (error) {
+        console.error("Error fetching vehicles:", error);
+      } finally {
+        // Hide loader after async operation
+        flushSync(() => setLoadingPackageScreen(false));
+      }
     }
 
     // Proceed to the next step
     setCurrentStep((prev) => Math.min(prev + 1, 3));
   };
+
+// useEffect(() => {
+//   console.log("loadingPackageScreen state changed:", loadingPackageScreen);
+// }, [loadingPackageScreen]);
+
 
   const handleBack = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
@@ -514,149 +533,205 @@ export default function Component() {
       }
       case 3:
         return (
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Choose Package</Label>
-                {loadingVehicles ? (
-                  <p>Loading vehicles...</p>
-                ) : (
-                  <div className="flex gap-4 justify-between">
-                    {vehicles.map((vehicle) => (
-                      <button
-                        key={vehicle.id}
-                        onClick={() => setSelectedVehicle(vehicle)}
-                        className={`flex items-center justify-center gap-5 w-52 h-20 border border-gray-100 text-left rounded-lg ${
-                          selectedVehicle?.id === vehicle.id
-                            ? "bg-primary"
-                            : "bg-slate-50"
+          <>
+            <Loader isVisible={loadingPackageScreen} />
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                {/* Package Details */}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Choose Package</Label>
+                    {loadingVehicles ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        {Array.from({ length: 4 }).map((_, index) => (
+                          <div
+                            key={index}
+                            className="w-52 h-20 bg-gray-200 animate-pulse rounded-lg"
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex gap-4 flex-wrap lg:justify-between">
+                        {vehicles.map((vehicle) => (
+                          <button
+                            key={vehicle.id}
+                            onClick={() => setSelectedVehicle(vehicle)}
+                            className={`flex items-center justify-center gap-5 w-52 h-20 border border-gray-100 text-left rounded-lg ${
+                              selectedVehicle?.id === vehicle.id
+                                ? "bg-primary"
+                                : "bg-slate-50"
+                            }`}
+                          >
+                            <img
+                              src={
+                                vehicle.icon.original_image ||
+                                "/default-vehicle-icon.png"
+                              }
+                              alt={vehicle.package_name}
+                              className="h-10 mix-blend-multiply"
+                            />
+                            <div>
+                              <p className="font-medium">
+                                {vehicle.package_name}
+                              </p>
+                              <p className="text-sm font-medium">
+                                {vehicle.delivery_fee} AED
+                              </p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="receiver_phone_number">
+                      Receiver Number
+                    </Label>
+                    <Input
+                      id="receiver_phone_number"
+                      placeholder="Required format 05XXXXXXXX"
+                      value={formData.package.receiver_phone_number || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          package: {
+                            ...prev.package,
+                            receiver_phone_number: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tip</Label>
+                    <div className="flex gap-4">
+                      {[5, 10, 15].map((tip) => (
+                        <button
+                          key={tip}
+                          onClick={() => handleTipSelect(tip)}
+                          className={`flex items-center justify-center w-20 h-10 border rounded-lg ${
+                            selectedTip === tip
+                              ? "bg-primary text-black"
+                              : "bg-white"
+                          }`}
+                        >
+                          {tip}
+                        </button>
+                      ))}
+                      <div
+                        className={`flex items-center w-20 h-10 border rounded-lg ${
+                          selectedTip === "custom"
+                            ? "bg-primary text-black"
+                            : "bg-white"
                         }`}
                       >
-                        <img
-                          src={
-                            vehicle.icon.original_image ||
-                            "/default-vehicle-icon.png"
-                          }
-                          alt={vehicle.package_name}
-                          className="h-10 mix-blend-multiply"
+                        <input
+                          type="number"
+                          value={customTip}
+                          onChange={handleCustomTipChange}
+                          placeholder="Enter"
+                          className="w-full h-full text-center outline-none bg-transparent"
                         />
-                        <div>
-                          <p className="font-medium">{vehicle.package_name}</p>
-                          <p className="text-sm font-medium">
-                            {vehicle.delivery_fee} AED
-                          </p>
-                        </div>
-                      </button>
-                    ))}
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Selected Tip:
+                      {selectedTip === "custom"
+                        ? customTip
+                          ? `${customTip} AED`
+                          : "Custom (not entered)"
+                        : `${selectedTip} AED`}
+                    </p>
                   </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="receiver_phone_number">Receiver Number</Label>
-                <Input
-                  id="receiver_phone_number"
-                  placeholder="Required format 05XXXXXXXX"
-                  value={formData.package.receiver_phone_number || ""}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      package: {
-                        ...prev.package,
-                        receiver_phone_number: e.target.value, // User input updates the state
-                      },
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Tip</Label>
-                <div className="flex gap-4">
-                  {[5, 10, 15].map((tip) => (
-                    <button
-                      key={tip}
-                      onClick={() => handleTipSelect(tip)}
-                      className={`flex items-center justify-center w-20 h-10 border rounded-lg ${
-                        selectedTip === tip
-                          ? "bg-primary text-black"
-                          : "bg-white"
-                      }`}
-                    >
-                      {tip}
-                    </button>
-                  ))}
-                  <div
-                    className={`flex items-center w-20 h-10 border rounded-lg ${
-                      selectedTip === "custom"
-                        ? "bg-primary text-black"
-                        : "bg-white"
-                    }`}
-                  >
-                    <input
-                      type="number"
-                      value={customTip}
-                      onChange={handleCustomTipChange}
-                      placeholder="Enter"
-                      className="w-full h-full text-center outline-none bg-transparent"
+                  <div className="space-y-2">
+                    <Label htmlFor="order_reference_number">
+                      Order Reference Number
+                      <span className="italic text-gray-500">(optional)</span>
+                    </Label>
+                    <Input
+                      id="order_reference_number"
+                      placeholder="Enter order reference number"
+                      value={formData.package.order_reference_number || ""} // Controlled input
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          package: {
+                            ...prev.package,
+                            order_reference_number: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Schedule Time</Label>
+                    <DateTimePicker
+                      onDateTimeChange={(date, time) => {
+                        setSelectedDate(date);
+                        setSelectedTime(time);
+                      }}
                     />
                   </div>
                 </div>
-                <p className="text-sm mt-2">
-                  Selected Tip:
-                  {selectedTip === "custom"
-                    ? customTip
-                      ? `${customTip} AED`
-                      : "Custom (not entered)"
-                    : `${selectedTip} AED`}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="order_reference_number">
-                  Order Reference Number
-                  <span className="italic text-gray-500">(optional)</span>
-                </Label>
-                <Input
-                  id="order_reference_number"
-                  placeholder="Enter order reference number"
-                  value={formData.package.order_reference_number || ""} // Controlled input
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      package: {
-                        ...prev.package,
-                        order_reference_number: e.target.value,
-                      },
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Schedule Time</Label>
-                <DateTimePicker
-                  onDateTimeChange={(date, time) => {
-                    setSelectedDate(date);
-                    setSelectedTime(time);
-                  }}
-                />
-              </div>
-              {distance || 0}
-            </div>
-            {/* Show Route */}
-            <div>
-              {isLoaded &&
-              formData.pickup.location.lat &&
-              formData.dropoff.location.lat ? (
-                <RouteMap
-                  isLoaded={isLoaded}
-                  pickup={formData.pickup.location}
-                  dropoff={formData.dropoff.location}
-                />
-              ) : (
-                <div className="w-full h-full bg-muted flex items-center justify-center">
-                  Loading route...
+                {/* Display delivery summary */}
+                <div className="flex mt-10 gap-10">
+                  <div className="flex gap-2">
+                    <img
+                      src="/distance.png"
+                      alt="slider"
+                      className="h-12 mix-blend-multiply"
+                    />
+                    <div>
+                      <span className="text-gray-500">Delivery Distance</span>
+                      <p>{distance} KM</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <img
+                      src="/time.png"
+                      alt="slider"
+                      className="h-12 mix-blend-multiply"
+                    />
+                    <div>
+                      <span className="text-gray-500">Delivery Time</span>
+                      <p>{duration} Min</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <img
+                      src="/fee.png"
+                      alt="slider"
+                      className="h-12 mix-blend-multiply"
+                    />
+                    <div>
+                      <span className="text-gray-500">Delivery Fee</span>
+                      <p>
+                        AED{" "}
+                        {selectedVehicle ? selectedVehicle.delivery_fee : "0"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              )}
+              </div>
+              {/* Show Route */}
+              <div>
+                {isLoaded &&
+                formData.pickup.location.lat &&
+                formData.dropoff.location.lat ? (
+                  <RouteMap
+                    isLoaded={isLoaded}
+                    pickup={formData.pickup.location}
+                    dropoff={formData.dropoff.location}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center rounded-lg">
+                    Loading route...
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </>
         );
       default:
         return null;
