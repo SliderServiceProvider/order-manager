@@ -12,13 +12,12 @@ if (!stripePublicKey) {
 }
 
 interface paymentProps {
-  customerId: number;
   amount: number;
 }
 
 const stripePromise = loadStripe(stripePublicKey);
 
-export default function StripeWrapper({ amount, customerId }: paymentProps) {
+export default function StripeWrapper({ amount }: paymentProps) {
   const options: StripeElementsOptions = {
     mode: "payment",
     amount,
@@ -34,7 +33,7 @@ export default function StripeWrapper({ amount, customerId }: paymentProps) {
   };
   return (
     <Elements stripe={stripePromise} options={options}>
-      <PaymentForm amount={amount} customerId={customerId} />
+      <PaymentForm amount={amount} />
     </Elements>
   );
 }

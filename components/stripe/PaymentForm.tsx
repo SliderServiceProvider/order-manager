@@ -28,13 +28,12 @@ if (!stripePublicKey) {
 }
 
 interface paymentProps {
-  customerId: number;
   amount: number;
 }
 
 const stripePromise = loadStripe(stripePublicKey);
 
-export default function PaymentForm({ amount, customerId }: paymentProps) {
+export default function PaymentForm({ amount }: paymentProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const stripe = useStripe();
@@ -57,7 +56,6 @@ export default function PaymentForm({ amount, customerId }: paymentProps) {
 
       // Create the payment request using your existing API
       const formData = {
-        customerId: customerId, // Example amount in cents
         amount: amount, // Example amount in cents
         currency: "aed",
       };
@@ -70,10 +68,7 @@ export default function PaymentForm({ amount, customerId }: paymentProps) {
       }
 
       let confirmationPageurl = `${window.location.origin}/my-invoice/payment-confirmation`;
-
-      if (customerId) {
-        confirmationPageurl = `${window.location.origin}/order-manager/payment-confirmation?id=${customerId}`;
-      }
+      
       // Confirm the payment, passing the country data explicitly
       const result = await stripe.confirmPayment({
         elements,
@@ -103,15 +98,9 @@ export default function PaymentForm({ amount, customerId }: paymentProps) {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle className="text-black">Invoice Payment</CardTitle>
-        <CardDescription>
-          Enter your card information to complete the payment.
-        </CardDescription>
-      </CardHeader>
+    <>
       <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-0">
           <div className="space-y-2">
             <Label htmlFor="name">Name on Card</Label>
             <Input id="name" placeholder="John Doe" required />
@@ -138,10 +127,10 @@ export default function PaymentForm({ amount, customerId }: paymentProps) {
             />
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="p-0">
           <Button
             type="submit"
-            className="w-full mt-4"
+            className="bg-black text-white w-full mt-10 h-12"
             disabled={!stripe || loading}
           >
             {loading
@@ -151,6 +140,6 @@ export default function PaymentForm({ amount, customerId }: paymentProps) {
         </CardFooter>
       </form>
       {error && <p className="text-red-500 text-center mt-4">{error}</p>}
-    </Card>
+    </>
   );
 }

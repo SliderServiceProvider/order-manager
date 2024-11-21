@@ -123,7 +123,7 @@ export function DateTimePicker({
             Selected: {format(date, "PPP")} at {time}
           </p>
         ) : (
-          <p>Please select both date and time</p>
+          <p></p>
         )}
       </div>
     </div>

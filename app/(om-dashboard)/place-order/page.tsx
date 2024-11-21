@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { MapPin, Package, CreditCard } from "lucide-react";
-import { GoogleMap, useLoadScript, Marker } from "@react-google-maps/api";
+import {
+  GoogleMap,
+  Marker,
+  DirectionsRenderer,
+  useLoadScript,
+} from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +17,8 @@ import Autocomplete from "@/components/googlemap/AutoComplete";
 import api from "@/services/api";
 import { DateTimePicker } from "@/components/place-order/DateTimePicker";
 import { format } from "date-fns";
+import { getCurrentLocation } from "@/utils/locationHelper";
+import RouteMap from "@/components/googlemap/RouteMap";
 
 type Location = {
   lat: number;
@@ -65,12 +72,21 @@ interface DeliverySummary {
 
 export default function Component() {
   const [loading, setLoading] = useState(true);
+  const [location, setLocation] = useState(null);
+  const [address, setAddress] = useState<string | null>(null);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [primaryAddress, setPrimaryAddress] = useState(null);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
   const [vehicles, setVehicles] = useState<VehicleProp[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleProp | null>(
     null
   );
-  
+
+  // Reference to the map instance
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const [mapIsMoving, setMapIsMoving] = useState(false);
+
   const [distance, setDistance] = useState<number | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
 
@@ -103,10 +119,50 @@ export default function Component() {
     },
   });
 
+  // Fetch Primary Address to show as pickup location
+  const fetchPrimaryAddress = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get("/order-manager/getPrimaryAddress");
+      const data = response.data;
+
+      if (data?.address) {
+        // Update the form data with the primary address
+        setFormData((prev) => ({
+          ...prev,
+          pickup: {
+            ...prev.pickup,
+            address: data.address.address,
+            building: data.address.flat_no,
+            directions: data.address.direction,
+            location: {
+              lat: data.address.latitude,
+              lng: data.address.longitude,
+            },
+          },
+        }));
+      } else {
+        // Fallback to fetching the current location
+        await getCurrentLocation(setFormData, "pickup");
+      }
+    } catch (error) {
+      console.error("Error fetching primary address:", error);
+      // Fallback to fetching the current location in case of an error
+      await getCurrentLocation(setFormData, "pickup");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPrimaryAddress();
+  }, []);
+
   const googleMapAPIKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-  const { isLoaded } = useLoadScript({
+  // Load script in the parent
+  const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: googleMapAPIKey,
-    libraries: ["places"],
+    libraries: ["places", "geometry"], // Libraries to load
   });
 
   const steps = [
@@ -115,6 +171,8 @@ export default function Component() {
     { id: 3, name: "Package", icon: Package },
   ];
 
+  let debounceTimeout: NodeJS.Timeout | null = null;
+
   const handleLocationSelectNew = (location: Locations | null) => {
     if (!location) {
       console.log("No location selected");
@@ -122,8 +180,6 @@ export default function Component() {
     }
 
     const type = currentStep === 1 ? "pickup" : "dropoff";
-
-    console.log(`Updating ${type} location in formData with:`, location);
 
     setFormData((prev) => ({
       ...prev,
@@ -166,7 +222,6 @@ export default function Component() {
         ],
       });
       const data = response.data;
-      console.log(data.data.total_distance);
 
       setVehicles(data.data.vehicles);
       setDistance(data.data.total_distance);
@@ -248,11 +303,95 @@ export default function Component() {
     }
   };
 
+  const fetchAddressFromCoordinates = async (
+    latitude: number,
+    longitude: number
+  ): Promise<string | null> => {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+
+      if (data?.results?.length > 0) {
+        return data.results[0].formatted_address;
+      } else {
+        console.error("No address found for the current location.");
+        return null;
+      }
+    } catch (error) {
+      console.error("Error fetching address from Google API:", error);
+      return null;
+    }
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case 1:
       case 2: {
         const type = currentStep === 1 ? "pickup" : "dropoff";
+
+        // const onLoad = (mapInstance: google.maps.Map) => {
+        //   mapRef.current = mapInstance;
+        // };
+
+        const onLoad = (mapInstance: google.maps.Map) => {
+          mapRef.current = mapInstance;
+          console.log("Map loaded and mapRef set:", mapRef.current);
+        };
+
+        const handleMapIdle = async (type: "pickup" | "dropoff") => {
+          if (!mapIsMoving) return; // Prevent redundant calls when the map is not being moved
+          console.log("onIdle triggered for:", type);
+
+          if (mapRef.current) {
+            const center = mapRef.current.getCenter();
+
+            if (center) {
+              const newLocation = {
+                lat: center.lat(),
+                lng: center.lng(),
+              };
+
+              console.log("New location from map center:", newLocation);
+
+              // Update location in form data
+              setFormData((prev) => ({
+                ...prev,
+                [type]: {
+                  ...prev[type],
+                  location: newLocation,
+                },
+              }));
+
+              // Fetch the address for the updated coordinates
+              const address = await fetchAddressFromCoordinates(
+                newLocation.lat,
+                newLocation.lng
+              );
+
+              console.log("Fetched address for new location:", address);
+
+              // Update the address in form data
+              setFormData((prev) => ({
+                ...prev,
+                [type]: {
+                  ...prev[type],
+                  address: address || "Unknown Location",
+                },
+              }));
+
+              console.log(
+                `${type.charAt(0).toUpperCase() + type.slice(1)} updated:`,
+                { location: newLocation, address }
+              );
+            } else {
+              console.warn("Failed to get map center");
+            }
+          }
+          setMapIsMoving(false); // Reset moving state after idle
+        };
+
         return (
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -285,7 +424,7 @@ export default function Component() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor={`${type}-building`}>
-                  Flat / Building{" "}
+                  Flat / Building
                   <span className="italic text-gray-500">(optional)</span>
                 </Label>
                 <Input
@@ -347,27 +486,11 @@ export default function Component() {
                   zoom={15}
                   center={formData[type].location}
                   mapContainerClassName="w-full h-full"
+                  onLoad={onLoad} // Set mapRef
+                  onDragStart={() => setMapIsMoving(true)} // Set moving state when dragging starts
+                  onIdle={() => handleMapIdle(type)}
                 >
-                  <Marker
-                    position={formData[type].location}
-                    draggable
-                    onDragEnd={(e) => {
-                      if (e.latLng) {
-                        const newLocation = {
-                          lat: e.latLng.lat(),
-                          lng: e.latLng.lng(),
-                        };
-                        console.log("Marker dragged to:", newLocation);
-                        setFormData((prev) => ({
-                          ...prev,
-                          [type]: {
-                            ...prev[type],
-                            location: newLocation,
-                          },
-                        }));
-                      }
-                    }}
-                  />
+                  {/* Remove the Marker component */}
                 </GoogleMap>
               ) : (
                 <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -376,6 +499,14 @@ export default function Component() {
               )}
               <div className="absolute top-14 px-10 w-full z-50">
                 <Autocomplete onLocationSelect={handleLocationSelectNew} />
+              </div>
+
+              {/* Fixed Center Marker */}
+              <div
+                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-full z-10"
+                style={{ pointerEvents: "none" }}
+              >
+                <img src="/marker-icon.png" alt="Marker" />
               </div>
             </div>
           </div>
@@ -470,7 +601,7 @@ export default function Component() {
                   </div>
                 </div>
                 <p className="text-sm mt-2">
-                  Selected Tip:{" "}
+                  Selected Tip:
                   {selectedTip === "custom"
                     ? customTip
                       ? `${customTip} AED`
@@ -480,7 +611,7 @@ export default function Component() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="order_reference_number">
-                  Order Reference Number{" "}
+                  Order Reference Number
                   <span className="italic text-gray-500">(optional)</span>
                 </Label>
                 <Input
@@ -511,15 +642,17 @@ export default function Component() {
             </div>
             {/* Show Route */}
             <div>
-              {isLoaded ? (
-                <GoogleMap
-                  zoom={15}
-                  // center={formData[type].location}
-                  mapContainerClassName="w-full h-full"
-                ></GoogleMap>
+              {isLoaded &&
+              formData.pickup.location.lat &&
+              formData.dropoff.location.lat ? (
+                <RouteMap
+                  isLoaded={isLoaded}
+                  pickup={formData.pickup.location}
+                  dropoff={formData.dropoff.location}
+                />
               ) : (
                 <div className="w-full h-full bg-muted flex items-center justify-center">
-                  Loading map...
+                  Loading route...
                 </div>
               )}
             </div>
@@ -538,9 +671,7 @@ export default function Component() {
           <div
             key={step.id}
             className={`flex items-center ${
-              currentStep >= step.id
-                ? "text-primary-foreground"
-                : "text-muted-foreground"
+              currentStep >= step.id ? "text-black" : "text-muted-foreground"
             }`}
           >
             <div className="flex items-center">
@@ -566,16 +697,16 @@ export default function Component() {
       <Card className="py-6">
         <CardContent>{renderStep()}</CardContent>
       </Card>
-      <div className="flex justify-between">
+      <div className="flex gap-4">
         <Button
-          className="bg-black text-white"
+          className="bg-primary text-black w-[250px]"
           onClick={handleBack}
           disabled={currentStep === 1}
         >
           Back
         </Button>
         <Button
-          className="bg-black text-white"
+          className="bg-black text-white w-[250px]"
           onClick={currentStep === 3 ? handleSubmit : handleNext}
         >
           {currentStep === 3 ? "Place Order" : "Next"}
