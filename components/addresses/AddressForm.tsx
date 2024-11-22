@@ -238,7 +238,7 @@ export default function AddressForm({
       if (result.results?.[0]) {
         const location = result.results[0].geometry.location;
         const coordinates = { lat: location.lat(), lng: location.lng() };
-
+        console.log(coordinates);
         setFormData((prev) => ({
           ...prev,
           address: result.results[0].formatted_address,

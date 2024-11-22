@@ -28,6 +28,8 @@ import { ToastAction } from "@/components/ui/toast";
 import { IconCurrencyDirham } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 
+import { OrderStatusModal } from "@/components/place-order/OrderStatusModal";
+
 type Location = {
   lat: number;
   lng: number;
@@ -106,6 +108,7 @@ export default function Component() {
   const [selectedTip, setSelectedTip] = useState<number | "custom">(0);
   const [customTip, setCustomTip] = useState<string>("");
   const [currentStep, setCurrentStep] = useState(1);
+  const shouldGeocode = useRef(true); // To prevent unnecessary geocoding
   const [formData, setFormData] = useState<FormData>({
     pickup: {
       address: "",
@@ -129,6 +132,12 @@ export default function Component() {
       cod_amount: 0,
     },
   });
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [orderStatus, setOrderStatus] = useState<"loading" | "success">(
+    "loading"
+  );
+  const [orderNumber, setOrderNumber] = useState("");
 
   // Fetch Primary Address to show as pickup location
   const fetchPrimaryAddress = async () => {
@@ -166,6 +175,7 @@ export default function Component() {
   };
 
   useEffect(() => {
+    
     fetchPrimaryAddress();
   }, []);
 
@@ -307,9 +317,14 @@ export default function Component() {
       });
       return;
     }
+    // event.preventDefault();
+    setIsModalOpen(true);
+    setOrderStatus("loading");
     const payload = {
+      source: "order_manager",
       client_id: 2070, // Assuming service type is predefined
       service_type: 1, // Assuming service type is predefined
+      isVendorOrder: false, // is order from deliverect client
       vehicle_type: selectedVehicle?.id || null, // Selected vehicle ID
       schedule_time:
         selectedDate && selectedTime
@@ -317,7 +332,10 @@ export default function Component() {
           : "", // Schedule time
       tip: selectedTip === "custom" ? parseFloat(customTip) || 0 : selectedTip, // Tip amount
       receiver_phone_number: formData.package.receiver_phone_number || null, // Receiver phone number
+      order_reference_number: formData.package.order_reference_number || null, // Receiver phone number
       cod_amount: formData.package.cod_amount || null, // COD amount
+      distance: distance || 0, // Replace with actual distance if calculated
+      duration: duration || 0, // Replace with actual duration if calculated
       tasks: [
         {
           task_type_id: 1, // Pickup task type
@@ -338,110 +356,188 @@ export default function Component() {
           cod_amount: null,
         },
       ],
-      distance: distance || 0, // Replace with actual distance if calculated
-      duration: duration || 0, // Replace with actual duration if calculated
     };
 
-    console.log("Submitting form data:", payload);
-
     try {
-      const response = await api.post(
-        "/create-external-order",
-        payload
-      ); // Adjust the endpoint as per your backend
+      const response = await api.post("/create-external-order", payload);
       if (response.status === 200) {
-        console.log("Order placed successfully:", response.data);
-        alert("Order placed successfully!");
-        router.push("/orders");
+        // console.log("Order placed successfully:", response.data);
+        const orderNumber = response.data.data.order_number;
+        setOrderNumber(orderNumber);
+        setOrderStatus("success");
+
+        // Wait for 2 seconds before redirecting
+        setTimeout(() => {
+          setIsModalOpen(false);
+          router.push(`/orders/order-details/${orderNumber}`);
+        }, 2000);
       } else {
         console.error("Error placing order:", response.data);
+        setIsModalOpen(false);
         alert("Failed to place the order. Please try again.");
       }
     } catch (error) {
       console.error("Error submitting the form:", error);
+      setIsModalOpen(false);
       alert("An error occurred while placing the order.");
     }
   };
 
-  const fetchAddressFromCoordinates = async (
-    latitude: number,
-    longitude: number
-  ): Promise<string | null> => {
-    try {
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-      );
-      const data = await response.json();
+  // Paste Map Link
+  const handlePasteLocation: React.ClipboardEventHandler<
+    HTMLInputElement
+  > = async (e) => {
+    const pastedData = e.clipboardData.getData("Text");
+    console.log("[handlePasteLocation] Pasted data:", pastedData);
 
-      if (data?.results?.length > 0) {
-        return data.results[0].formatted_address;
-      } else {
-        console.error("No address found for the current location.");
-        return null;
-      }
-    } catch (error) {
-      console.error("Error fetching address from Google API:", error);
-      return null;
+    const regex = /@([-0-9.]+),([-0-9.]+)/;
+    const plusCodeRegex = /^[A-Z0-9]{4}\+[A-Z0-9]{2}(?: [\w\s]+)?$/;
+    const shortLinkRegex = /^https:\/\/maps\.app\.goo\.gl\/.+$/;
+
+    const match = pastedData.match(regex);
+    const isPlusCode = plusCodeRegex.test(pastedData);
+    const isShortLink = shortLinkRegex.test(pastedData);
+
+    if (match) {
+      const lat = parseFloat(match[1]);
+      const lng = parseFloat(match[2]);
+      const coordinates = { lat, lng };
+      await resolveLocationFromCoordinates(
+        coordinates,
+        currentStep === 1 ? "pickup" : "dropoff"
+      );
+    } else if (isPlusCode) {
+      await resolveLocationFromPlusCode(
+        pastedData,
+        currentStep === 1 ? "pickup" : "dropoff"
+      );
+    } else if (isShortLink) {
+      await resolveShortLink(
+        pastedData,
+        currentStep === 1 ? "pickup" : "dropoff"
+      );
     }
+
   };
 
-  const handleLocationPaste = async (
-    e: React.ClipboardEvent<HTMLInputElement>,
+
+  const resolveShortLink = async (
+    shortLink: string,
     type: "pickup" | "dropoff"
   ) => {
-    const pastedData = e.clipboardData.getData("Text");
-
     try {
-      // Extract lat,lng from the pasted Google Maps URL
+      const response = await fetch(shortLink, {
+        method: "HEAD",
+        redirect: "follow",
+      });
+      const expandedUrl = response.url;
+
       const regex = /@([-0-9.]+),([-0-9.]+)/;
-      const match = pastedData.match(regex);
+      const plusCodeRegex = /^[A-Z0-9]{4}\+[A-Z0-9]{2}(?: [\w\s]+)?$/;
+
+      const match = expandedUrl.match(regex);
+      const isPlusCode = plusCodeRegex.test(expandedUrl);
 
       if (match) {
         const lat = parseFloat(match[1]);
         const lng = parseFloat(match[2]);
+        const coordinates = { lat, lng };
+        await resolveLocationFromCoordinates(coordinates, type);
+      } else if (isPlusCode) {
+        await resolveLocationFromPlusCode(expandedUrl, type);
+      } else {
+        console.warn(
+          "[resolveShortLink] Expanded URL does not contain valid location data."
+        );
+      }
+    } catch (error) {
+      console.error("[resolveShortLink] Error expanding short link:", error);
+    }
+  };
 
-        // Update formData with coordinates
+
+  const resolveLocationFromCoordinates = async (
+    coordinates: Location,
+    type: "pickup" | "dropoff"
+  ) => {
+    try {
+      const geocoder = new window.google.maps.Geocoder();
+      const result = await geocoder.geocode({ location: coordinates });
+
+      if (result.results?.[0]) {
         setFormData((prev) => ({
           ...prev,
           [type]: {
             ...prev[type],
-            location: { lat, lng },
+            address: result.results[0].formatted_address,
+            location: coordinates,
           },
         }));
 
-        // Fetch the address using Geocoding API
-        const address = await fetchAddressFromCoordinates(lat, lng);
-        if (address) {
-          setFormData((prev) => ({
-            ...prev,
-            [type]: {
-              ...prev[type],
-              address,
-            },
-          }));
+        // Center map on location
+        if (mapRef.current) {
+          mapRef.current.panTo(coordinates);
         }
-
-        toast({
-          variant: "destructive",
-          title: `${type === "pickup" ? "Pickup" : "Dropoff"} location updated`,
-          description: address || "Address updated successfully.",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Invalid URL",
-          description: "Please paste a valid Google Maps location link.",
-        });
       }
     } catch (error) {
-      console.error("Error handling pasted location:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to process the pasted location.",
-      });
+      console.error("[resolveLocationFromCoordinates] Geocoding error:", error);
     }
   };
+
+
+  const resolveLocationFromPlusCode = async (
+    plusCode: string,
+    type: "pickup" | "dropoff"
+  ) => {
+    try {
+      const geocoder = new window.google.maps.Geocoder();
+      const result = await geocoder.geocode({ address: plusCode });
+
+      if (result.results?.[0]) {
+        
+        
+        const location = result.results[0].geometry.location;
+        const coordinates = { lat: location.lat(), lng: location.lng() };
+        console.log(coordinates);
+        // Explicitly parse address components
+        // const addressComponents = result.results[0].address_components;
+        // const formattedAddress = addressComponents
+        //   ? addressComponents.map((component) => component.long_name).join(", ")
+        //   : result.results[0].formatted_address;
+
+        // console.log(
+        //   "[resolveLocationFromPlusCode] Parsed Address:",
+        //   formattedAddress
+        // );
+        // setFormData((prev) => ({
+        //   ...prev,
+        //   address: result.results[0].formatted_address,
+        //   coordinates,
+        // }));
+
+        setFormData((prev) => ({
+          ...prev,
+          [type]: {
+            ...prev[type],
+            address: result.results[0].formatted_address,
+            coordinates,
+          },
+        }));
+
+        // Center map on resolved coordinates
+        if (mapRef.current) {
+          mapRef.current.panTo(coordinates);
+        }
+      } else {
+        console.warn(
+          "[resolveLocationFromPlusCode] No results found for Plus Code."
+        );
+      }
+    } catch (error) {
+      console.error("[resolveLocationFromPlusCode] Geocoding error:", error);
+    }
+  };
+
 
   const renderStep = () => {
     switch (currentStep) {
@@ -474,22 +570,28 @@ export default function Component() {
                 },
               }));
 
-              // Fetch the address for the updated coordinates
-              const address = await fetchAddressFromCoordinates(
-                newLocation.lat,
-                newLocation.lng
-              );
+              // Fetch the address for the updated coordinates using Geocoder
+              try {
+                const geocoder = new window.google.maps.Geocoder();
+                const result = await geocoder.geocode({
+                  location: newLocation,
+                });
 
-              console.log("Fetched address for new location:", address);
+                const address =
+                  result.results?.[0]?.formatted_address || "Unknown Location";
+                console.log("Fetched address for new location:", address);
 
-              // Update the address in form data
-              setFormData((prev) => ({
-                ...prev,
-                [type]: {
-                  ...prev[type],
-                  address: address || "Unknown Location",
-                },
-              }));
+                // Update the address in form data
+                setFormData((prev) => ({
+                  ...prev,
+                  [type]: {
+                    ...prev[type],
+                    address,
+                  },
+                }));
+              } catch (error) {
+                console.error("[handleMapIdle] Geocoding error:", error);
+              }
             } else {
               console.warn("Failed to get map center");
             }
@@ -508,7 +610,6 @@ export default function Component() {
                   id={`${type}-address`}
                   placeholder="Select location"
                   value={formData[type].address}
-                  onPaste={(e) => handleLocationPaste(e, type)}
                 />
               </div>
               <div className="space-y-2 hidden">
@@ -564,29 +665,69 @@ export default function Component() {
                   }
                 />
               </div>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition((position) => {
-                      const newLocation = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                      };
-                      console.log("Current location:", newLocation);
-                      setFormData((prev) => ({
-                        ...prev,
-                        [type]: {
-                          ...prev[type],
-                          location: newLocation,
+              <hr />
+              <div className="space-y-2">
+                <div className="py-2">
+                  <p className="text-gray-500 text-sm">
+                    Or you can update your location using one of the following
+                    options
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm">
+                    Locate Me:
+                    <span className="text-gray-500 ml-1">
+                      Click this option to automatically update your location to
+                      your current position
+                    </span>
+                  </p>
+                </div>
+
+                <Button
+                  className="bg-gray-100 text-black shadow-none border"
+                  onClick={() => {
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        async (position) => {
+                          const coordinates = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                          };
+                          if (mapRef.current) {
+                            shouldGeocode.current = true; // Enable geocoding for user interaction
+                            mapRef.current.panTo(coordinates);
+                            await resolveLocationFromCoordinates(
+                              coordinates,
+                              currentStep === 1 ? "pickup" : "dropoff"
+                            );
+                          }
                         },
-                      }));
-                    });
-                  }
-                }}
-              >
-                Locate Me
-              </Button>
+                        (error) => {
+                          console.error("Error getting location:", error);
+                        }
+                      );
+                    }
+                  }}
+                >
+                  Locate Me
+                </Button>
+
+                <div>
+                  <Label className="text-sm">
+                    Paste Location Link:
+                    <span className="text-gray-500 ml-1">
+                      Copy the location link from Google Maps and paste it here
+                      to set your location manually.
+                    </span>
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter or paste Google Maps link, Plus Code, or short link"
+                    className="h-11"
+                    onPaste={handlePasteLocation} // Handle paste action
+                  />
+                </div>
+              </div>
             </div>
             <div className="h-[550px] rounded-lg overflow-hidden relative">
               {isLoaded ? (
@@ -635,7 +776,7 @@ export default function Component() {
                   <div className="space-y-2">
                     <Label>Choose Package</Label>
                     {loadingVehicles ? (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {Array.from({ length: 4 }).map((_, index) => (
                           <div
                             key={index}
@@ -644,7 +785,7 @@ export default function Component() {
                         ))}
                       </div>
                     ) : (
-                      <div className="flex gap-4 flex-wrap lg:justify-between">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 lg:justify-between">
                         {vehicles.map((vehicle) => (
                           <button
                             key={vehicle.id}
@@ -652,7 +793,7 @@ export default function Component() {
                               vehicle.is_available &&
                               setSelectedVehicle(vehicle)
                             }
-                            className={`flex items-center justify-center gap-5 w-52 h-20 border border-gray-100 text-left rounded-lg ${
+                            className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg ${
                               vehicle.is_available
                                 ? ""
                                 : "opacity-50 cursor-not-allowed"
@@ -800,7 +941,9 @@ export default function Component() {
                       className="h-12 mix-blend-multiply"
                     />
                     <div>
-                      <span className="text-gray-500">Delivery Distance</span>
+                      <span className="text-gray-500 text-sm">
+                        Delivery Distance
+                      </span>
                       <p>
                         {distance}
                         <span className="text-sm ml-1">KM</span>
@@ -814,7 +957,9 @@ export default function Component() {
                       className="h-12 mix-blend-multiply"
                     />
                     <div>
-                      <span className="text-gray-500">Delivery Time</span>
+                      <span className="text-gray-500 text-sm">
+                        Delivery Time
+                      </span>
                       <p>
                         {duration}
                         <span className="text-sm ml-1">Min</span>
@@ -828,7 +973,9 @@ export default function Component() {
                       className="h-12 mix-blend-multiply"
                     />
                     <div>
-                      <span className="text-gray-500">Delivery Fee</span>
+                      <span className="text-gray-500 text-sm">
+                        Delivery Fee
+                      </span>
                       <p>
                         <span className="text-sm mr-1">AED</span>
                         {selectedVehicle
@@ -916,6 +1063,12 @@ export default function Component() {
           {currentStep === 3 ? "Place Order" : "Next"}
         </Button>
       </div>
+      <OrderStatusModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        status={orderStatus}
+        orderNumber={orderNumber}
+      />
     </div>
   );
 }
