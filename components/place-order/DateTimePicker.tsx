@@ -1,5 +1,3 @@
-"use client";
-
 import * as React from "react";
 import {
   addHours,
@@ -62,72 +60,54 @@ export function DateTimePicker({
   };
 
   return (
-    <>
-      <div className="flex gap-2">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              id="date"
-              variant={"outline"}
-              className={cn(
-                "w-[280px] h-11 justify-start text-left font-normal",
-                !date && "text-muted-foreground"
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {date ? format(date, "PPP") : <span>Pick a date</span>}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0">
-            <Calendar
-              mode="single"
-              selected={date}
-              onSelect={handleDateChange}
-              disabled={(d) => isBefore(d, startOfToday())}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              id="time"
-              variant={"outline"}
-              className={cn(
-                "w-[280px] h-11 justify-start text-left font-normal",
-                !time && "text-muted-foreground"
-              )}
-              disabled={!date}
-            >
-              <Clock className="mr-2 h-4 w-4" />
-              {time ? time : <span>Pick a time</span>}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[280px] p-0">
-            <Select onValueChange={handleTimeChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a time" />
-              </SelectTrigger>
-              <SelectContent>
-                {generateTimeOptions().map((timeOption) => (
-                  <SelectItem key={timeOption} value={timeOption}>
-                    {timeOption}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div className="text-sm text-muted-foreground">
-        {date && time ? (
-          <p>
-            Sheduled at: {format(date, "PPP")} at {time}
-          </p>
-        ) : (
-          <p></p>
-        )}
-      </div>
-    </>
+    <div className="flex gap-2">
+      {/* Date Picker */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            id="date"
+            variant={"outline"}
+            className={cn(
+              "w-[280px] h-11 justify-start text-left font-normal",
+              !date && "text-muted-foreground"
+            )}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {date ? format(date, "PPP") : <span>Pick a date</span>}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0">
+          <Calendar
+            mode="single"
+            selected={date}
+            onSelect={handleDateChange}
+            disabled={(d) => isBefore(d, startOfToday())}
+            initialFocus
+          />
+        </PopoverContent>
+      </Popover>
+
+      {/* Time Picker */}
+      <Select onValueChange={handleTimeChange} disabled={!date}>
+        <SelectTrigger
+          className={cn(
+            "w-[280px] h-11 text-left",
+            !time && "text-muted-foreground"
+          )}
+        >
+          <Clock className="mr-2 h-4 w-4" />
+          <SelectValue
+            placeholder={date ? "Pick a time" : "Select a date first"}
+          />
+        </SelectTrigger>
+        <SelectContent>
+          {generateTimeOptions().map((timeOption) => (
+            <SelectItem key={timeOption} value={timeOption}>
+              {timeOption}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }

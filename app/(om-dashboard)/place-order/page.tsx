@@ -6,6 +6,7 @@ import {
   GoogleMap,
   Marker,
   DirectionsRenderer,
+  Libraries,
   useLoadScript,
 } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { flushSync } from "react-dom";
 
 import { toast, useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { IconCurrencyDirham } from "@tabler/icons-react";
 
 type Location = {
   lat: number;
@@ -165,10 +167,12 @@ export default function Component() {
   }, []);
 
   const googleMapAPIKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+  // Define libraries array outside component to prevent unnecessary re-renders
+  const libraries: Libraries = ["places"];
   // Load script in the parent
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: googleMapAPIKey,
-    // libraries: ["places", "geometry"],
+    libraries: libraries,
   });
 
   const steps = [
@@ -283,7 +287,7 @@ export default function Component() {
 
   const handleSubmit = async () => {
     console.log(formData.package.vehicle_type);
-    
+
     // Check receiver number is empty or not
     if (!selectedVehicle) {
       toast({
@@ -375,6 +379,64 @@ export default function Component() {
     }
   };
 
+  const handleLocationPaste = async (
+    e: React.ClipboardEvent<HTMLInputElement>,
+    type: "pickup" | "dropoff"
+  ) => {
+    const pastedData = e.clipboardData.getData("Text");
+
+    try {
+      // Extract lat,lng from the pasted Google Maps URL
+      const regex = /@([-0-9.]+),([-0-9.]+)/;
+      const match = pastedData.match(regex);
+
+      if (match) {
+        const lat = parseFloat(match[1]);
+        const lng = parseFloat(match[2]);
+
+        // Update formData with coordinates
+        setFormData((prev) => ({
+          ...prev,
+          [type]: {
+            ...prev[type],
+            location: { lat, lng },
+          },
+        }));
+
+        // Fetch the address using Geocoding API
+        const address = await fetchAddressFromCoordinates(lat, lng);
+        if (address) {
+          setFormData((prev) => ({
+            ...prev,
+            [type]: {
+              ...prev[type],
+              address,
+            },
+          }));
+        }
+
+        toast({
+          variant: "destructive",
+          title: `${type === "pickup" ? "Pickup" : "Dropoff"} location updated`,
+          description: address || "Address updated successfully.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Invalid URL",
+          description: "Please paste a valid Google Maps location link.",
+        });
+      }
+    } catch (error) {
+      console.error("Error handling pasted location:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to process the pasted location.",
+      });
+    }
+  };
+
   const renderStep = () => {
     switch (currentStep) {
       case 1:
@@ -441,6 +503,7 @@ export default function Component() {
                   id={`${type}-address`}
                   placeholder="Select location"
                   value={formData[type].address}
+                  onPaste={(e) => handleLocationPaste(e, type)}
                 />
               </div>
               <div className="space-y-2 hidden">
@@ -538,7 +601,14 @@ export default function Component() {
                 </div>
               )}
               <div className="absolute top-14 px-10 w-full z-50">
-                <Autocomplete onLocationSelect={handleLocationSelectNew} />
+                <Autocomplete
+                  isLoaded={isLoaded}
+                  onLocationSelect={(location) => {
+                    if (location) {
+                      console.log("Selected location:", location);
+                    }
+                  }}
+                />
               </div>
 
               {/* Fixed Center Marker */}
@@ -577,12 +647,21 @@ export default function Component() {
                         {vehicles.map((vehicle) => (
                           <button
                             key={vehicle.id}
-                            onClick={() => setSelectedVehicle(vehicle)}
+                            onClick={() =>
+                              vehicle.is_available &&
+                              setSelectedVehicle(vehicle)
+                            }
                             className={`flex items-center justify-center gap-5 w-52 h-20 border border-gray-100 text-left rounded-lg ${
-                              selectedVehicle?.id === vehicle.id
+                              vehicle.is_available
+                                ? ""
+                                : "opacity-50 cursor-not-allowed"
+                            } ${
+                              selectedVehicle?.id === vehicle.id &&
+                              vehicle.is_available
                                 ? "bg-primary"
                                 : "bg-slate-50"
                             }`}
+                            disabled={!vehicle.is_available}
                           >
                             <img
                               src={
@@ -657,15 +736,29 @@ export default function Component() {
                         />
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Selected Tip:
-                      {selectedTip === "custom"
-                        ? customTip
-                          ? `${customTip} AED`
-                          : "Custom (not entered)"
-                        : `${selectedTip} AED`}
-                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <p className="text-sm text-muted-foreground">
+                        Selected Tip:
+                        {selectedTip === "custom"
+                          ? customTip
+                            ? `${customTip} AED`
+                            : "Custom (not entered)"
+                          : `${selectedTip || 0} AED`}
+                      </p>
+                      {selectedTip !== 0 && (
+                        <button
+                          onClick={() => {
+                            setSelectedTip(0); // Reset the selected tip
+                            setCustomTip(""); // Clear custom tip input
+                          }}
+                          className="text-xs text-red-500 border border-red-500 rounded-lg px-2 py-1 hover:bg-red-100"
+                        >
+                          Remove Tip
+                        </button>
+                      )}
+                    </div>
                   </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="order_reference_number">
                       Order Reference Number
@@ -707,7 +800,10 @@ export default function Component() {
                     />
                     <div>
                       <span className="text-gray-500">Delivery Distance</span>
-                      <p>{distance} KM</p>
+                      <p>
+                        {distance}
+                        <span className="text-sm ml-1">KM</span>
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -718,7 +814,10 @@ export default function Component() {
                     />
                     <div>
                       <span className="text-gray-500">Delivery Time</span>
-                      <p>{duration} Min</p>
+                      <p>
+                        {duration}
+                        <span className="text-sm ml-1">Min</span>
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -730,8 +829,13 @@ export default function Component() {
                     <div>
                       <span className="text-gray-500">Delivery Fee</span>
                       <p>
-                        AED
-                        {selectedVehicle ? selectedVehicle.delivery_fee : "0"}
+                        <span className="text-sm mr-1">AED</span>
+                        {selectedVehicle
+                          ? parseFloat(selectedVehicle.delivery_fee) +
+                            (selectedTip === "custom"
+                              ? parseFloat(customTip) || 0
+                              : selectedTip || 0)
+                          : "0"}
                       </p>
                     </div>
                   </div>

@@ -1,5 +1,4 @@
-"use client";
-
+import { useEffect, useState, useRef } from "react";
 import {
   Command,
   CommandEmpty,
@@ -8,9 +7,6 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { autocomplete } from "@/lib/google";
-import { PlaceAutocompleteResult } from "@googlemaps/google-maps-services-js";
-import { useEffect, useState, useRef } from "react";
 
 interface Coordinates {
   lat: number;
@@ -23,37 +19,98 @@ interface Location {
   coordinates: Coordinates;
 }
 
-interface AutocompleteProps {
-  onLocationSelect: (location: Location | null) => void;
+interface CustomPlaceAutocompleteResult {
+  description: string;
+  place_id: string;
 }
 
-export default function Autocomplete({ onLocationSelect }: AutocompleteProps) {
-  const [predictions, setPredictions] = useState<PlaceAutocompleteResult[]>([]);
+interface AutocompleteProps {
+  onLocationSelect: (location: Location | null) => void;
+  isLoaded: boolean;
+}
+
+export default function Autocomplete({
+  onLocationSelect,
+  isLoaded,
+}: AutocompleteProps) {
+  const [predictions, setPredictions] = useState<
+    CustomPlaceAutocompleteResult[]
+  >([]);
   const [input, setInput] = useState("");
-  const [showList, setShowList] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const justSelectedRef = useRef(false);
 
+  const fetchPredictions = async (input: string) => {
+    if (!input.trim() || !isLoaded || !window.google?.maps?.places) return [];
+
+    try {
+      const service = new window.google.maps.places.AutocompleteService();
+      const request = {
+        input,
+        componentRestrictions: { country: "AE" },
+      };
+
+      const predictions = await new Promise<
+        google.maps.places.AutocompletePrediction[]
+      >((resolve, reject) => {
+        service.getPlacePredictions(request, (results, status) => {
+          if (
+            status === window.google.maps.places.PlacesServiceStatus.OK &&
+            results
+          ) {
+            resolve(results);
+          } else {
+            reject(new Error(status));
+          }
+        });
+      });
+
+      return predictions.map((prediction) => ({
+        description: prediction.description,
+        place_id: prediction.place_id,
+      }));
+    } catch (error) {
+      console.error("Error fetching predictions:", error);
+      return [];
+    }
+  };
+
   const handleSelect = async (placeId: string, description: string) => {
+    if (!isLoaded || !window.google?.maps) return;
+
     setInput(description);
-    setPredictions([]); // Reset predictions
-    setShowList(false);
+    setPredictions([]);
+    setOpen(false);
     justSelectedRef.current = true;
 
     try {
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?place_id=${placeId}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      const geocoder = new window.google.maps.Geocoder();
+      const result = await new Promise<google.maps.GeocoderResult[]>(
+        (resolve, reject) => {
+          geocoder.geocode({ placeId }, (results, status) => {
+            if (status === window.google.maps.GeocoderStatus.OK && results) {
+              resolve(results);
+            } else {
+              reject(new Error(status));
+            }
+          });
+        }
       );
-      const data = await response.json();
 
-      if (data.status === "OK" && data.results.length > 0) {
-        const { lat, lng } = data.results[0].geometry.location;
+      if (result.length > 0) {
+        const location = result[0].geometry.location;
         const locationData: Location = {
           placeId,
           description,
-          coordinates: { lat, lng },
+          coordinates: {
+            lat: location.lat(),
+            lng: location.lng(),
+          },
         };
-        console.log("Sending location to parent:", locationData);
         onLocationSelect(locationData);
+      } else {
+        onLocationSelect(null);
       }
     } catch (error) {
       console.error("Error fetching location details:", error);
@@ -61,68 +118,67 @@ export default function Autocomplete({ onLocationSelect }: AutocompleteProps) {
     }
   };
 
-  const handleInputChange = (value: string) => {
-    setInput(value);
-    if (justSelectedRef.current) {
-      justSelectedRef.current = false;
-      return;
-    }
-    if (!value.trim()) {
-      onLocationSelect(null);
-    }
-    setShowList(true);
-  };
-
   useEffect(() => {
     const getPredictions = async () => {
-      if (!input.trim() || justSelectedRef.current) {
-        setPredictions([]); // Always reset predictions to an empty array
+      if (!input.trim() || justSelectedRef.current || !isLoaded) {
+        setPredictions([]);
+        setIsLoading(false);
         return;
       }
 
       try {
-        const results = await autocomplete(input);
-        setPredictions(Array.isArray(results) ? results : []); // Ensure `results` is an array
-        setShowList(true);
+        const results = await fetchPredictions(input);
+        setPredictions(results);
       } catch (error) {
         console.error("Error fetching predictions:", error);
-        setPredictions([]); // Reset predictions on error
+        setPredictions([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     const timer = setTimeout(getPredictions, 300);
     return () => clearTimeout(timer);
-  }, [input]);
+  }, [input, isLoaded]);
 
   return (
-    <Command className="rounded-lg border shadow-md">
+    <Command className="rounded-lg border border-gray-200 shadow-none">
       <CommandInput
-        placeholder="Search location..."
         value={input}
-        onValueChange={handleInputChange}
-        onFocus={() => {
-          if (!justSelectedRef.current && input.trim()) {
-            setShowList(true);
+        onValueChange={(value) => {
+          setInput(value);
+          setOpen(true);
+          justSelectedRef.current = false;
+          setIsLoading(true);
+          if (!value.trim()) {
+            setPredictions([]);
+            onLocationSelect(null);
+            setIsLoading(false);
           }
         }}
-        onBlur={() => {
-          setTimeout(() => setShowList(false), 200); // Delay to handle item click
-        }}
       />
-      <CommandList>
-        <CommandGroup>
-          {predictions.map((prediction) => (
-            <CommandItem
-              key={prediction.place_id}
-              onSelect={() =>
-                handleSelect(prediction.place_id, prediction.description)
-              }
-            >
-              {prediction.description}
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      </CommandList>
+      {open && (
+        <CommandList>
+          {isLoading && <CommandEmpty>Loading...</CommandEmpty>}
+          {!isLoading && predictions.length === 0 && input.trim() && (
+            <CommandEmpty>No locations found.</CommandEmpty>
+          )}
+          {predictions.length > 0 && (
+            <CommandGroup>
+              {predictions.map((prediction) => (
+                <CommandItem
+                  key={prediction.place_id}
+                  onSelect={() =>
+                    handleSelect(prediction.place_id, prediction.description)
+                  }
+                >
+                  {prediction.description}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+        </CommandList>
+      )}
     </Command>
   );
 }

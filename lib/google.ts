@@ -1,21 +1,43 @@
-"use server";
+// Remove the "use server" directive since we're running this in the browser
+import { CustomPlaceAutocompleteResult } from "@/types";
 
-import { Client } from "@googlemaps/google-maps-services-js";
-
-const client = new Client();
-export const autocomplete = async (input: string) => {
+export const autocomplete = async (
+  input: string,
+  options?: { components?: string }
+): Promise<CustomPlaceAutocompleteResult[]> => {
   if (!input) return [];
 
   try {
-    const response = await client.placeAutocomplete({
-      params: {
-        input,
-        key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
-      },
+    // Create a new AutocompleteService instance
+    const service = new google.maps.places.AutocompleteService();
+
+    const request = {
+      input,
+      componentRestrictions: options?.components
+        ? { country: options.components.split(":")[1] }
+        : undefined,
+    };
+
+    // Use promisified version of the getPlacePredictions method
+    const predictions = await new Promise<
+      google.maps.places.AutocompletePrediction[]
+    >((resolve, reject) => {
+      service.getPlacePredictions(request, (results, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          resolve(results);
+        } else {
+          reject(new Error(status));
+        }
+      });
     });
 
-    return response.data.predictions;
+    // Map the predictions to your custom type
+    return predictions.map((prediction) => ({
+      description: prediction.description,
+      place_id: prediction.place_id,
+    }));
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching autocomplete predictions:", error);
+    return [];
   }
 };
