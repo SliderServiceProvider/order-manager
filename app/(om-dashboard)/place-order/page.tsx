@@ -603,11 +603,7 @@ export default function Component() {
               <div className="absolute top-14 px-10 w-full z-50">
                 <Autocomplete
                   isLoaded={isLoaded}
-                  onLocationSelect={(location) => {
-                    if (location) {
-                      console.log("Selected location:", location);
-                    }
-                  }}
+                  onLocationSelect={handleLocationSelectNew}
                 />
               </div>
 

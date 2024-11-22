@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from "react";
+"use client";
+import { useEffect, useState } from "react";
 import {
   Command,
   CommandEmpty,
@@ -37,9 +38,8 @@ export default function Autocomplete({
     CustomPlaceAutocompleteResult[]
   >([]);
   const [input, setInput] = useState("");
-  const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const justSelectedRef = useRef(false);
+  const [isSelected, setIsSelected] = useState(false);
 
   const fetchPredictions = async (input: string) => {
     if (!input.trim() || !isLoaded || !window.google?.maps?.places) return [];
@@ -79,10 +79,9 @@ export default function Autocomplete({
   const handleSelect = async (placeId: string, description: string) => {
     if (!isLoaded || !window.google?.maps) return;
 
+    setIsSelected(true);
     setInput(description);
     setPredictions([]);
-    setOpen(false);
-    justSelectedRef.current = true;
 
     try {
       const geocoder = new window.google.maps.Geocoder();
@@ -120,12 +119,13 @@ export default function Autocomplete({
 
   useEffect(() => {
     const getPredictions = async () => {
-      if (!input.trim() || justSelectedRef.current || !isLoaded) {
+      if (!input.trim() || !isLoaded || isSelected) {
         setPredictions([]);
         setIsLoading(false);
         return;
       }
 
+      setIsLoading(true);
       try {
         const results = await fetchPredictions(input);
         setPredictions(results);
@@ -139,46 +139,47 @@ export default function Autocomplete({
 
     const timer = setTimeout(getPredictions, 300);
     return () => clearTimeout(timer);
-  }, [input, isLoaded]);
+  }, [input, isLoaded, isSelected]);
 
   return (
-    <Command className="rounded-lg border border-gray-200 shadow-none">
+    <Command
+      shouldFilter={false}
+      className="rounded-lg border border-gray-200 shadow-none"
+    >
       <CommandInput
         value={input}
         onValueChange={(value) => {
           setInput(value);
-          setOpen(true);
-          justSelectedRef.current = false;
-          setIsLoading(true);
+          setIsSelected(false);
           if (!value.trim()) {
             setPredictions([]);
             onLocationSelect(null);
-            setIsLoading(false);
           }
         }}
+        className="border-none focus:ring-0"
+        placeholder="Search location..."
       />
-      {open && (
-        <CommandList>
-          {isLoading && <CommandEmpty>Loading...</CommandEmpty>}
-          {!isLoading && predictions.length === 0 && input.trim() && (
-            <CommandEmpty>No locations found.</CommandEmpty>
-          )}
-          {predictions.length > 0 && (
-            <CommandGroup>
-              {predictions.map((prediction) => (
-                <CommandItem
-                  key={prediction.place_id}
-                  onSelect={() =>
-                    handleSelect(prediction.place_id, prediction.description)
-                  }
-                >
-                  {prediction.description}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-        </CommandList>
-      )}
+      <CommandList>
+        {isLoading ? (
+          <CommandEmpty>Loading...</CommandEmpty>
+        ) : predictions.length === 0 && input && !isSelected ? (
+          <CommandEmpty>No locations found</CommandEmpty>
+        ) : null}
+        {predictions.length > 0 && !isSelected && (
+          <CommandGroup heading="Suggestions">
+            {predictions.map((prediction) => (
+              <CommandItem
+                key={prediction.place_id}
+                onSelect={() =>
+                  handleSelect(prediction.place_id, prediction.description)
+                }
+              >
+                {prediction.description}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+      </CommandList>
     </Command>
   );
 }
