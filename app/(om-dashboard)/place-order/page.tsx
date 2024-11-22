@@ -308,6 +308,7 @@ export default function Component() {
       return;
     }
     const payload = {
+      client_id: 2070, // Assuming service type is predefined
       service_type: 1, // Assuming service type is predefined
       vehicle_type: selectedVehicle?.id || null, // Selected vehicle ID
       schedule_time:
@@ -344,7 +345,10 @@ export default function Component() {
     console.log("Submitting form data:", payload);
 
     try {
-      const response = await api.post("/pickup-delivery/create-order", payload); // Adjust the endpoint as per your backend
+      const response = await api.post(
+        "/create-external-order",
+        payload
+      ); // Adjust the endpoint as per your backend
       if (response.status === 200) {
         console.log("Order placed successfully:", response.data);
         alert("Order placed successfully!");
@@ -551,7 +555,7 @@ export default function Component() {
                 <Textarea
                   id={`${type}-directions`}
                   placeholder="Enter directions"
-                  value={formData[type].directions}
+                  value={formData[type]?.directions || ""} // Ensures fallback to an empty string
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
