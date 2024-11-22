@@ -79,6 +79,7 @@ interface DeliverySummary {
 
 export default function Component() {
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
   const [loadingPackageScreen, setLoadingPackageScreen] = useState(false);
   const [location, setLocation] = useState(null);
   const [address, setAddress] = useState<string | null>(null);
@@ -286,8 +287,6 @@ export default function Component() {
   };
 
   const handleSubmit = async () => {
-    console.log(formData.package.vehicle_type);
-
     // Check receiver number is empty or not
     if (!selectedVehicle) {
       toast({
@@ -445,7 +444,6 @@ export default function Component() {
 
         const onLoad = (mapInstance: google.maps.Map) => {
           mapRef.current = mapInstance;
-          console.log("Map loaded and mapRef set:", mapRef.current);
         };
 
         const handleMapIdle = async (type: "pickup" | "dropoff") => {
