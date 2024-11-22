@@ -28,6 +28,8 @@ export default function AddressCard() {
   const [loading, setLoading] = useState(true);
   const [addresses, setAddresses] = useState<AddressCardProps[]>([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showConfirmModalForPrimary, setShowConfirmModalForPrimary] =
+    useState(false);
   const [addressToDelete, setAddressToDelete] = useState<number | null>(null);
   const { toast } = useToast();
 
@@ -75,6 +77,37 @@ export default function AddressCard() {
     }
   };
 
+  const setAsPrimaryddress = async (id: number) => {
+    try {
+      const response = await api.get(`/primary/address/${id}`);
+      const responseData = response.data;
+      if (responseData.status == "Success") {
+        toast({
+          className: cn("bg-green-500 text-white"),
+          title: "Success",
+          description: responseData.message,
+          variant: "default",
+        });
+        setShowConfirmModalForPrimary(false);
+        // Refresh the list of addresses
+        await fetchAddresses();
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description:
+            responseData.message || "Failed to submit payout request.",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error deleting address",
+        description: error,
+      });
+    }
+  };
+
   const handleDeleteClick = (id: number) => {
     setAddressToDelete(id);
     setShowConfirmModal(true);
@@ -90,6 +123,24 @@ export default function AddressCard() {
     setShowConfirmModal(false);
     setAddressToDelete(null);
   };
+
+
+  // set as Priamary
+  const handleSetAsPrimaryClick = (id: number) => {
+    setAddressToDelete(id);
+    setShowConfirmModalForPrimary(true);
+  };
+
+  const handleConfirmForPrimary = () => {
+    if (addressToDelete !== null) {
+      setAsPrimaryddress(addressToDelete);
+    }
+  };
+
+  const handleCancelForPrimary = () => {
+    setShowConfirmModalForPrimary(false);
+  };
+
 
   useEffect(() => {
     fetchAddresses();
@@ -145,6 +196,17 @@ export default function AddressCard() {
                           Edit
                         </Link>
                       </Button>
+                      {address.is_primary ? (
+                        <></>
+                      ) : (
+                        <Button
+                          className="text-white bg-green-500"
+                          onClick={() => handleSetAsPrimaryClick(address.id)}
+                        >
+                          Set as Primary
+                        </Button>
+                      )}
+
                       <Button
                         className="text-black"
                         onClick={() => handleDeleteClick(address.id)}
@@ -178,6 +240,31 @@ export default function AddressCard() {
             <Button
               className="bg-black text-white"
               onClick={handleConfirmDelete}
+            >
+              Confirm
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* set primary modal */}
+      <Dialog
+        open={showConfirmModalForPrimary}
+        onOpenChange={setShowConfirmModalForPrimary}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Updation</DialogTitle>
+          </DialogHeader>
+          <p>
+            Are you sure you want to change this address as primary
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelForPrimary}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-black text-white"
+              onClick={handleConfirmForPrimary}
             >
               Confirm
             </Button>

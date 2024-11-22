@@ -26,6 +26,7 @@ import { flushSync } from "react-dom";
 import { toast, useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { IconCurrencyDirham } from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
 
 type Location = {
   lat: number;
@@ -78,6 +79,7 @@ interface DeliverySummary {
 }
 
 export default function Component() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [loadingPackageScreen, setLoadingPackageScreen] = useState(false);
@@ -342,10 +344,11 @@ export default function Component() {
     console.log("Submitting form data:", payload);
 
     try {
-      const response = await api.post("/place-order", payload); // Adjust the endpoint as per your backend
+      const response = await api.post("/pickup-delivery/create-order", payload); // Adjust the endpoint as per your backend
       if (response.status === 200) {
         console.log("Order placed successfully:", response.data);
         alert("Order placed successfully!");
+        router.push("/orders");
       } else {
         console.error("Error placing order:", response.data);
         alert("Failed to place the order. Please try again.");
