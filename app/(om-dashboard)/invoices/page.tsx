@@ -45,7 +45,6 @@ export default function page() {
 
   const amountInSubunits = Math.round(invoiceAmount * 100);
 
-  const handleSubmit = () => {};
 
   const handleCancelRequest = () => {
     setShowRequestModal(false);

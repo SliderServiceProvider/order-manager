@@ -140,7 +140,7 @@ export default function OrderCard({
           variant: "destructive",
           title: "Submission failed",
           description:
-            responseData.message || "Failed to submit payout request.",
+            responseData.message || "Failed to submit.",
         });
       }
     } catch (err: any) {
@@ -320,10 +320,15 @@ export default function OrderCard({
                 order.order_status === "Un Assigned") && (
                 // Display icons for Assigned or Un Assigned status
                 <>
-                  <IconMessage
-                    className="text-gray-500 cursor-pointer"
-                    size={24}
-                  />
+                  <Link
+                    href={`${process.env.NEXT_PUBLIC_SERVER}/order-manager/messages/${order.order_number}/${order.customer_id}`}
+                  >
+                    <IconMessage
+                      className="text-gray-500 cursor-pointer"
+                      size={24}
+                    />
+                  </Link>
+
                   <IconPhone
                     className="text-gray-500 cursor-pointer"
                     size={24}

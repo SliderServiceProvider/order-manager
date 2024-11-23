@@ -14,6 +14,9 @@ import { Label } from "@/components/ui/label";
 import api from "@/services/api";
 import { IconCurrencyDirham } from "@tabler/icons-react";
 import React, { useEffect, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
 
 interface InvoiceSummaryProps {
   total_payout_value: number;
@@ -22,9 +25,14 @@ interface InvoiceSummaryProps {
   total_pending_value: number;
 }
 export default function page() {
+  const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [submitLoading, setSubmitLoading] = useState(false); // Loading for submit button
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [amount, setAmount] = useState<string>(""); // State for amount input
   const [payoutSummary, setPayoutSummary] = useState<InvoiceSummaryProps>();
+  const [refreshTable, setRefreshTable] = useState(false); // Track table refresh
+
   const fetchPayoutSummary = async () => {
     setLoading(true);
     try {
@@ -47,8 +55,44 @@ export default function page() {
     setShowRequestModal(true);
   };
 
-  const handleSubmit = () => {
-    
+  const handleSubmit = async () => {
+    setSubmitLoading(true); // Start loading
+    try {
+      const response = await api.post("/order-manager/createPayoutRequest", {
+        amount: parseFloat(amount), // Convert input string to float
+      });
+      const responseData = response.data;
+      // alert("Order cancellation submitted successfully.");
+      if (responseData.success == true) {
+        toast({
+          className: cn("bg-green-500 text-white"),
+          title: "Success",
+          description: responseData.message,
+          variant: "default",
+        });
+        setShowRequestModal(false);
+        fetchPayoutSummary(); // Refresh data
+        setRefreshTable(true); // Trigger table refresh
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description:
+            responseData.message || "Failed to submit payout request.",
+        });
+        setSubmitLoading(false); // End loading
+      }
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message || "There was a problem with your request.";
+      toast({
+        variant: "destructive",
+        title: "Uh oh! Something went wrong.",
+        description: errorMessage,
+        action: <ToastAction altText="Try again">Try again</ToastAction>,
+      });
+      setSubmitLoading(false); // End loading
+    }
   };
 
   const handleCancelRequest = () => {
@@ -125,14 +169,24 @@ export default function page() {
           </DialogHeader>
           <div className="grid w-full  items-center gap-1.5">
             <Label htmlFor="amount">Amount</Label>
-            <Input type="text" id="amount" placeholder="Enter Amount" />
+            <Input
+              type="text"
+              id="amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Enter Amount"
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={handleCancelRequest}>
               Cancel
             </Button>
-            <Button className="bg-black text-white" onClick={handleSubmit}>
-              Submit
+            <Button
+              className="bg-black text-white"
+              onClick={handleSubmit}
+              disabled={submitLoading || !amount} // Disable if loading or no amount
+            >
+              {submitLoading ? "Submitting..." : "Submit"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -143,7 +197,7 @@ export default function page() {
           <CardTitle className="font-medium">Payout History</CardTitle>
         </CardHeader>
         <CardContent>
-          <PayoutHistory />
+          <PayoutHistory refreshTrigger={refreshTable} />
         </CardContent>
       </Card>
     </div>

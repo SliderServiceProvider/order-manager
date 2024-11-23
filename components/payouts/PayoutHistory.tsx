@@ -42,7 +42,11 @@ interface PaginationMetadata {
   current_page: number;
 }
 
-export function PayoutHistory() {
+interface PayoutHistoryProps {
+  refreshTrigger: boolean;
+}
+
+export function PayoutHistory({ refreshTrigger }: PayoutHistoryProps) {
   const [loading, setLoading] = useState(true);
   const [payouts, setPayouts] = useState<PayoutsProps[]>([]);
   const [search, setSearch] = useState("");
@@ -66,8 +70,11 @@ export function PayoutHistory() {
   useEffect(() => {
     fetchPayouts();
   }, [pagination.current_page, debouncedSearch]);
-
-
+  useEffect(() => {
+    if (refreshTrigger) {
+      fetchPayouts(); // Re-fetch when refreshTrigger changes
+    }
+  }, [refreshTrigger]);
   const fetchPayouts = async () => {
     setLoading(true);
     try {
@@ -90,19 +97,18 @@ export function PayoutHistory() {
     }
   };
 
-   const handlePageChange = (url: string | null) => {
-     if (url) {
-       const pageUrl = new URL(url);
-       const pageNumber = pageUrl.searchParams.get("page");
-       if (pageNumber) {
-         setPagination((prev) => ({
-           ...prev,
-           current_page: parseInt(pageNumber),
-         }));
-       }
-     }
-   };
-
+  const handlePageChange = (url: string | null) => {
+    if (url) {
+      const pageUrl = new URL(url);
+      const pageNumber = pageUrl.searchParams.get("page");
+      if (pageNumber) {
+        setPagination((prev) => ({
+          ...prev,
+          current_page: parseInt(pageNumber),
+        }));
+      }
+    }
+  };
 
   return (
     <>
