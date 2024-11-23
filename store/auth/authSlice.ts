@@ -41,7 +41,7 @@ export const { setCredentials, clearAuthState } = authSlice.actions;
 export const logout = () => async (dispatch: any) => {
   try {
     // Call the logout API
-    await api.post("/auth/logout");
+    await api.post("/order-manager/logout");
     // Clear the Redux state and localStorage
     dispatch(clearAuthState());
   } catch (error) {

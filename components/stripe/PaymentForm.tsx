@@ -60,14 +60,17 @@ export default function PaymentForm({ amount }: paymentProps) {
         currency: "aed",
       };
 
-      const response = await api.post("/invoice/createPaymentIntent", formData);
+      const response = await api.post(
+        "/order-manager/invoice/createPaymentIntent",
+        formData
+      );
       const { clientSecret } = response.data;
 
       if (!stripe) {
         throw new Error("Stripe hasn't loaded yet. Please try again.");
       }
 
-      let confirmationPageurl = `${window.location.origin}/my-invoice/payment-confirmation`;
+      let confirmationPageurl = `${window.location.origin}/invoices/payment-confirmation`;
       
       // Confirm the payment, passing the country data explicitly
       const result = await stripe.confirmPayment({

@@ -53,7 +53,7 @@ const navigation: NavItem[] = [
   },
   {
     title: "Track Order",
-    href: "/track-order",
+    href: process.env.NEXT_PUBLIC_SERVER + "/track-order/2070/23592297",
     icon: IconGps,
   },
   {
