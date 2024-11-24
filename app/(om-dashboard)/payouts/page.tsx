@@ -192,14 +192,8 @@ export default function page() {
         </DialogContent>
       </Dialog>
       {/* Payout History */}
-      <Card className="mt-10">
-        <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle className="font-medium">Payout History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PayoutHistory refreshTrigger={refreshTable} />
-        </CardContent>
-      </Card>
+      <PayoutHistory refreshTrigger={refreshTable} />
+     
     </div>
   );
 }
