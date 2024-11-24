@@ -72,11 +72,11 @@ const navigation: NavItem[] = [
     href: "/payouts",
     icon: IconWallet,
   },
-  // {
-  //   title: "Chat",
-  //   href: "/chat",
-  //   icon: IconMessage,
-  // },
+  {
+    title: "Chat",
+    href: "/chat",
+    icon: IconMessage,
+  },
   // {
   //   title: "Account Settings",
   //   href: "/account-settings",
