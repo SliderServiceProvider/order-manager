@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader } from "../ui/card";
 interface KpiSummaryProps {
   totalOrderValue: number;
   totalOrderCount: number;
-  totalBrands: number;
-  totalLocations: number;
+  completedPayoutValue: number;
+  totalWalletBalance: number;
 }
 
 interface KpiSummarySectionProps {
@@ -84,14 +84,14 @@ export function KpiSummarySection({
             <SummaryItem
               icon={<Split />}
               title="Total Brands"
-              value={kpiSummary.totalBrands.toString()}
+              value={kpiSummary.completedPayoutValue.toString()}
               change="0%" // Placeholder
               bgColor="bg-green-200"
             />
             <SummaryItem
               icon={<MapPinHouse />}
               title="Total Locations"
-              value={kpiSummary.totalLocations.toString()}
+              value={kpiSummary.totalWalletBalance.toString()}
               change="0%" // Placeholder
               bgColor="bg-purple-200"
             />

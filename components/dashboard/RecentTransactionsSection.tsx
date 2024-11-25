@@ -74,7 +74,7 @@ export function RecentTransactionsSection({
           RECENT TRANSACTIONS
         </h4>
         <Link
-          href="/my-invoice"
+          href="/invoices"
           className="rounded-lg py-1 px-2 text-sm border mt-0"
         >
           View All

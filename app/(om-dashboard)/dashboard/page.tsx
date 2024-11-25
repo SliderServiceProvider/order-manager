@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { KpiSummarySection } from "@/components/dashboard/KpiSummarySection";
@@ -48,7 +48,7 @@ export default function DashboardPage(): JSX.Element {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await api.get("/dashboardAnalytics");
+      const response = await api.get("/order-manager/dashboardAnalytics");
 
       const data = await response.data;
 
@@ -82,7 +82,7 @@ export default function DashboardPage(): JSX.Element {
         )}
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
-          <div className="col-span-12 lg:col-span-7 ltablet:col-span-12 flex">
+          <div className="col-span-12 ltablet:col-span-12 flex">
             <div className="w-full flex-grow">
               {recentTransactions ? (
                 <RecentTransactionsSection
@@ -91,10 +91,6 @@ export default function DashboardPage(): JSX.Element {
               ) : (
                 <div>Loading recentTransactions Summary...</div> // Optional loading message
               )}
-            </div>
-          </div>
-          <div className="col-span-12 lg:col-span-5 ltablet:col-span-12 flex">
-            <div className="w-full flex-grow">
             </div>
           </div>
         </div>

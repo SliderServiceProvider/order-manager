@@ -55,12 +55,6 @@ function OrderRow({
   return (
     <tr>
       <td className="border-t border-muted-200 py-4 px-3 text-sm font-medium">
-        {brand}
-      </td>
-      <td className="border-t border-muted-200 py-4 px-3 text-sm font-medium">
-        {accountManager}
-      </td>
-      <td className="border-t border-muted-200 py-4 px-3 text-sm font-medium">
         <Link className="text-blue-500" href={detailPageLink}>
           {orderNumber}
         </Link>
@@ -90,20 +84,20 @@ export function RecentOrdersSection({
 }: RecentOrdersSectionProps): JSX.Element {
   return (
     <Card className="card bg-white">
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <h4 className="text-black font-semibold uppercase">Recent Orders</h4>
+        <Link
+          href="/orders"
+          className="rounded-lg py-1 px-2 text-sm border mt-0"
+        >
+          View All
+        </Link>
       </CardHeader>
       <CardContent>
         <div className="w-full overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr>
-                <th className="bg-transparent py-2 px-3 text-start text-xs font-medium uppercase text-muted-400">
-                  Brand
-                </th>
-                <th className="bg-transparent py-2 px-3 text-start text-xs font-medium uppercase text-muted-400">
-                  Account Manager
-                </th>
                 <th className="bg-transparent py-2 px-3 text-start text-xs font-medium uppercase text-muted-400">
                   Order Number
                 </th>
@@ -129,7 +123,7 @@ export function RecentOrdersSection({
                   cost={`AED ${order.order_cost}`} // Format cost here
                   status={order.order_status}
                   orderTime={new Date(order.order_time).toLocaleString()} // Format date here
-                  detailPageLink={`/order/details/${order.order_number}`} // Link generation
+                  detailPageLink={`/orders/order-details/${order.order_number}`} // Link generation
                 />
               ))}
             </tbody>

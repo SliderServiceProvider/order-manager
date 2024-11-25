@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,16 @@ type Suggestions = {
   title: string;
 };
 
-export default function Chat() {
+interface PageProps {
+  params: Promise<{
+    order_number: string;
+  }>;
+}
+
+const Page: React.FC<PageProps> = ({ params }) => {
+  const unwrappedParams = use(params); // Unwrap the `params` promise
+  const { order_number } = unwrappedParams; // Access `order_number` safely
+
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<ChatIndex | null>(null);
@@ -49,9 +58,12 @@ export default function Chat() {
   const [error, setError] = useState<string | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
 
+  
+
+
   const fetchDrivers = useCallback(async () => {
     try {
-      const response = await api.get("/order-manager/chat/getChatIndex");
+      const response = await api.get(`/order-manager/chat/getChatIndex/${order_number}`);
       const responseData = response.data;
       setDrivers(responseData.chatList);
     } catch (error) {
@@ -117,6 +129,38 @@ export default function Chat() {
   const handleSuggestionClick = (suggestion: string) => {
     setMessage(suggestion);
   };
+
+  useEffect(() => {
+    // Fetch drivers on component mount
+    const fetchDriversAndSelectDefault = async () => {
+      try {
+        const response = await api.get("/order-manager/chat/getChatIndex");
+        const responseData = response.data;
+        setDrivers(responseData.chatList);
+
+        // Automatically select the driver for the given order_number
+        const defaultDriver = responseData.chatList.find(
+          (driver: ChatIndex) => driver.order_number === parseInt(order_number)
+        );
+
+        if (defaultDriver) {
+          setSelectedDriver(defaultDriver);
+          fetchMessages(defaultDriver.id, defaultDriver.order_number);
+        }
+      } catch (error) {
+        console.error("Error fetching drivers:", error);
+        setError("Failed to fetch drivers. Please try again.");
+      }
+    };
+
+    fetchDriversAndSelectDefault();
+
+    const handleResize = () => setIsMobileView(window.innerWidth < 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, [order_number, fetchMessages]);
 
   const renderDriverList = () => (
     <div className="w-full md:w-80 border-r flex flex-col h-full">
@@ -255,4 +299,6 @@ export default function Chat() {
         ))}
     </div>
   );
-}
+};
+
+export default Page;

@@ -51,11 +51,11 @@ const navigation: NavItem[] = [
     href: "/orders",
     icon: IconPackage,
   },
-  {
-    title: "Track Order",
-    href: process.env.NEXT_PUBLIC_SERVER + "/track-order/2070/23592297",
-    icon: IconGps,
-  },
+  // {
+  //   title: "Track Order",
+  //   href: process.env.NEXT_PUBLIC_BACKEND_URL + "/track-order/2070/23592297",
+  //   icon: IconGps,
+  // },
   {
     title: "Address Book",
     href: "/addresses",

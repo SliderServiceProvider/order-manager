@@ -320,9 +320,7 @@ export default function OrderCard({
                 order.order_status === "Un Assigned") && (
                 // Display icons for Assigned or Un Assigned status
                 <>
-                  <Link
-                    href={`${process.env.NEXT_PUBLIC_SERVER}/order-manager/messages/${order.order_number}/${order.customer_id}`}
-                  >
+                  <Link href={`chat/${order.order_number}`}>
                     <IconMessage
                       className="text-gray-500 cursor-pointer"
                       size={24}
@@ -360,7 +358,14 @@ export default function OrderCard({
               Cancel Order
             </Button>
           )}
-        {/* <Button className="bg-black">Track Order</Button> */}
+        {/* only show track button to active orders */}
+        {order.order_status === "Assigned" && (
+          <Button variant="link" className="bg-black text-white">
+            <Link href={`order-tracking/${order.order_number}`}>
+              Track Order
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Cancel Order Form */}
