@@ -42,13 +42,13 @@ function SummaryItem({
         <h3 className="mb-1 text-3xl font-bold">
           <span>{value}</span>
         </h3>
-        <div className="inline-flex items-center flex-wrap gap-1">
+        {/* <div className="inline-flex items-center flex-wrap gap-1">
           <span className="flex items-center text-green-500 font-bold">
             <span>+</span>
             <span>{change}</span>
           </span>
           <span className="text-gray-500">vs last month</span>
-        </div>
+        </div> */}
       </div>
     </div>
   );
@@ -69,7 +69,7 @@ export function KpiSummarySection({
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
             <SummaryItem
               icon={<IconMoneybag />}
-              title="Total Order Value"
+              title="Total Invoice Value"
               value={`AED ${kpiSummary.totalOrderValue}`}
               change="0%" // Placeholder, update with actual data if available
               bgColor="bg-rose-200"
@@ -83,15 +83,15 @@ export function KpiSummarySection({
             />
             <SummaryItem
               icon={<Split />}
-              title="Total Brands"
+              title="Completed Payout Value"
               value={kpiSummary.completedPayoutValue.toString()}
               change="0%" // Placeholder
               bgColor="bg-green-200"
             />
             <SummaryItem
               icon={<MapPinHouse />}
-              title="Total Locations"
-              value={kpiSummary.totalWalletBalance.toString()}
+              title="Balance Payout Value"
+              value={`AED ${kpiSummary.totalWalletBalance.toString()}`}
               change="0%" // Placeholder
               bgColor="bg-purple-200"
             />
