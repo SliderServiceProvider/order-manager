@@ -43,6 +43,12 @@ export function DateTimePicker({
     onDateTimeChange(date || null, newTime || null);
   };
 
+  const handleClear = () => {
+    setDate(undefined);
+    setTime(undefined);
+    onDateTimeChange(null, null);
+  };
+
   const generateTimeOptions = () => {
     const options: string[] = [];
     const now = new Date();
@@ -60,7 +66,7 @@ export function DateTimePicker({
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 items-center">
       {/* Date Picker */}
       <Popover>
         <PopoverTrigger asChild>
@@ -108,6 +114,17 @@ export function DateTimePicker({
           ))}
         </SelectContent>
       </Select>
+
+      {/* Clear Button */}
+      <Button
+        variant="outline"
+        className="h-11"
+        onClick={handleClear}
+        disabled={!date && !time} // Disable if nothing is selected
+      >
+        Clear
+      </Button>
     </div>
   );
 }
+

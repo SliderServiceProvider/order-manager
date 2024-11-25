@@ -1,5 +1,6 @@
-import React from "react";
-import { Bell, User, Settings, LogOut, Mail, Plus, Check } from "lucide-react";
+"use client"
+import React, { useState } from "react";
+import { Bell, User, Settings, LogOut, Mail, Plus, Check, CurlyBracesIcon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,6 +16,14 @@ import { useAppSelector, useAppDispatch } from "@/hooks/useAuth";
 import { logout } from "@/store/auth/authSlice";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
 
 interface HeaderProps {
   setSidebarOpen: (open: boolean) => void;
@@ -24,6 +33,11 @@ export function Header({ setSidebarOpen }: HeaderProps) {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const userName = useAppSelector((state) => state.auth.user?.name); // Access user name from Redux state
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleLinkClick = () => {
+    setIsOpen(false); // Close the modal when a link is clicked
+  };
 
   // Handle logout by dispatching the logout action and redirecting to the login page
   const handleLogout = () => {
@@ -47,9 +61,54 @@ export function Header({ setSidebarOpen }: HeaderProps) {
         {/* <h2 className="text-lg font-semibold lg:hidden uppercase">Slider Enterprise</h2> */}
       </div>
       <div className="flex items-center gap-5">
-        <Link href="/place-order" className="flex items-center gap-2 bg-primary p-2 rounded-lg">
-          <IconCubePlus /> Place Order
-        </Link>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger className="flex items-center gap-2 bg-primary p-2 rounded-lg">
+            <div className="flex items-center">
+              <IconCubePlus className="mr-2" />
+            </div>
+            Place Order
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="text-center">
+                Select Delivery Type
+              </DialogTitle>
+              <DialogDescription>
+                <div className="flex justify-around py-10">
+                  <div>
+                    <Link
+                      href="/place-order"
+                      className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
+                      onClick={handleLinkClick}
+                    >
+                      <img
+                        src="/delivery.png"
+                        alt="Delivery"
+                        className="h-20"
+                      />
+                      <p>Deliver an Order</p>
+                    </Link>
+                  </div>
+                  <div>
+                    <Link
+                      href="/place-order/cod"
+                      className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
+                      onClick={handleLinkClick}
+                    >
+                      <img
+                        src="/cod.png"
+                        alt="COD"
+                        className="h-20"
+                      />
+                      <p>Deliver a COD Order</p>
+                    </Link>
+                  </div>
+                </div>
+              </DialogDescription>
+            </DialogHeader>
+          </DialogContent>
+        </Dialog>
+
         {/* <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">

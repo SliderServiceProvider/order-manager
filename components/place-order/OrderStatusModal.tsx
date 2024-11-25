@@ -24,8 +24,20 @@ export function OrderStatusModal({
     setOpen(isOpen);
   }, [isOpen]);
 
+  const handleOpenChange = (newOpen: boolean) => {
+    // Only allow closing if it's not through clicking outside
+    // The Dialog will still allow closing via Escape key
+    if (newOpen === false) {
+      return;
+    }
+    setOpen(newOpen);
+    if (!newOpen) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={true}>
       <VisuallyHidden>
         <DialogTitle>Order Status</DialogTitle>
       </VisuallyHidden>

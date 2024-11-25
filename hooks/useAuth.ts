@@ -10,6 +10,7 @@ export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 
 // Type for user data
 export interface User {
+  id: number;
   name: string;
   email: string;
   auth_token: string;

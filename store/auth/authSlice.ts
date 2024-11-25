@@ -5,7 +5,7 @@ import axios from "axios";
 const baseURL = process.env.NEXT_PUBLIC_BASE_URL;
 
 interface AuthState {
-  user: { name: string; email: string; auth_token: string } | null;
+  user: {id:number, name: string; email: string; auth_token: string } | null;
   token: string | null;
 }
 
