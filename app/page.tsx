@@ -55,13 +55,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md space-y-12 rounded-lg bg-transparent p-6">
+    <div
+      className="flex min-h-screen items-center justify-center bg-amber-400"
+      style={{
+        backgroundImage: 'url("/hero-pattern.png")',
+        backgroundRepeat: "no-repeat",
+        backgroundSize: "cover",
+      }}
+    >
+      <div className="w-full max-w-md space-y-12 rounded-2xl shadow p-6 bg-white">
         <div>
           <Image
             src="/slider_logo.png"
             className="-ml-4"
-            width={180}
+            width={140}
             height={0}
             alt="slider-logo"
           />
