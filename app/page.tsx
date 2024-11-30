@@ -56,14 +56,16 @@ export default function LoginPage() {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-amber-400"
-      style={{
-        backgroundImage: 'url("/hero-pattern.png")',
-        backgroundRepeat: "no-repeat",
-        backgroundSize: "cover",
-      }}
+      className="flex min-h-screen items-center justify-center 
+               relative 
+               before:absolute before:inset-0 
+               before:bg-[url('/overlay.jpg')] 
+               before:bg-cover 
+               before:bg-center 
+               before:opacity-25 
+               before:z-[-1]"
     >
-      <div className="w-full max-w-md space-y-12 rounded-2xl shadow p-6 bg-white">
+      <div className="w-full max-w-md space-y-12 rounded-2xl shadow p-6 bg-white relative z-10">
         <div>
           <Image
             src="/slider_logo.png"
