@@ -21,6 +21,7 @@ interface WarningModalProps {
   onOpenChange: (open: boolean) => void;
   invoiceReminder: InvoiceReminder | null;
   isAccountLocked: boolean;
+  isFromDashBoard: boolean;
 }
 
 export default function WarningModal({
@@ -28,6 +29,7 @@ export default function WarningModal({
   onOpenChange,
   invoiceReminder,
   isAccountLocked,
+  isFromDashBoard,
 }: WarningModalProps) {
   const getIcon = () => {
     switch (invoiceReminder?.type) {
@@ -72,12 +74,19 @@ export default function WarningModal({
         <div className="flex flex-col sm:flex-row gap-3 mt-4">
           {/* if account is locked then show Link button */}
           {isAccountLocked ? (
-            <Button
-              variant="link"
-              className="flex-1 bg-primary text-white text-black"
-            >
-              <Link href="/dashboard">View Dashboard</Link>
-            </Button>
+            isFromDashBoard ? (
+              <Button
+                variant="ghost"
+                className="flex-1 bg-gray-100 hover:bg-primary text-black"
+                onClick={() => onOpenChange(false)}
+              >
+                View Dashboard
+              </Button>
+            ) : (
+              <Button variant="link" className="flex-1 bg-primary text-black">
+                <Link href="/dashboard">View Dashboard</Link>
+              </Button>
+            )
           ) : (
             <Button
               variant="ghost"
@@ -87,6 +96,7 @@ export default function WarningModal({
               Pay Later
             </Button>
           )}
+
           <Button
             variant="link"
             className="flex-1 bg-black hover:bg-gray-900 text-white"

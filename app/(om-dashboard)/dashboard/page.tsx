@@ -128,6 +128,7 @@ export default function DashboardPage(): JSX.Element {
         onOpenChange={setOpen}
         invoiceReminder={invoiceReminder}
         isAccountLocked={isAccountLocked}
+        isFromDashBoard = {true}
       />
     </>
   );

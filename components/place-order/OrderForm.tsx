@@ -1116,6 +1116,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         onOpenChange={setOpen}
         invoiceReminder={invoiceReminder}
         isAccountLocked={isAccountLocked}
+        isFromDashBoard={false}
       />
     </div>
   );
