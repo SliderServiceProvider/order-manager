@@ -29,7 +29,7 @@ export default function StripeWrapper({ amount }: paymentProps) {
       },
     },
     paymentMethodCreation: "manual",
-    paymentMethodConfiguration: "pmc_1NlnOAGJVwkKJPNnLAIsGdgT",
+    paymentMethodConfiguration: "pmc_1MU924HI2efg0MXRoDRCdDRA",
   };
   return (
     <Elements stripe={stripePromise} options={options}>
