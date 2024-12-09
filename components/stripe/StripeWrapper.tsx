@@ -6,6 +6,7 @@ import { loadStripe, Stripe, StripeElementsOptions } from "@stripe/stripe-js";
 import PaymentForm from "./PaymentForm";
 
 const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+const stripePmcKey = process.env.NEXT_PUBLIC_STRIPE_PMC_KEY;
 
 if (!stripePublicKey) {
   throw new Error("Stripe public key is not defined");
@@ -29,7 +30,7 @@ export default function StripeWrapper({ amount }: paymentProps) {
       },
     },
     paymentMethodCreation: "manual",
-    paymentMethodConfiguration: "pmc_1MU924HI2efg0MXRoDRCdDRA",
+    paymentMethodConfiguration: stripePmcKey,
   };
   return (
     <Elements stripe={stripePromise} options={options}>
