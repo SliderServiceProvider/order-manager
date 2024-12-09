@@ -31,6 +31,7 @@ import { useRouter } from "next/navigation";
 import { OrderStatusModal } from "@/components/place-order/OrderStatusModal";
 // Import the custom hook to access Redux state and dispatch
 import { useAppSelector } from "@/hooks/useAuth";
+import WarningModal from "../invoice-warning/WarningModal";
 
 type Location = {
   lat: number;
@@ -76,10 +77,9 @@ interface icon {
   original_image: string;
 }
 
-interface DeliverySummary {
-  distance: number;
-  duration: number;
-  charged_amount: number;
+interface InvoiceReminder {
+  type: string;
+  message: string;
 }
 
 export default function OrderForm({ deliveryType }: { deliveryType: string }) {
@@ -89,6 +89,9 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   const { toast } = useToast();
   const [loadingPackageScreen, setLoadingPackageScreen] = useState(false);
   const [location, setLocation] = useState(null);
+  const [isAccountLocked, setIsAccountLocked] = useState(false);
+  const [invoiceReminder, setInvoiceReminder] =
+    useState<InvoiceReminder | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
@@ -136,13 +139,12 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     },
   });
 
-  console.log(userId);
-  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [orderStatus, setOrderStatus] = useState<"loading" | "success">(
     "loading"
   );
   const [orderNumber, setOrderNumber] = useState("");
+  const [open, setOpen] = useState(false);
 
   // Fetch Primary Address to show as pickup location
   const fetchPrimaryAddress = async () => {
@@ -151,7 +153,12 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     try {
       const response = await api.get("/order-manager/getPrimaryAddress");
       const data = response.data;
+      setIsAccountLocked(data.isAccountLocked);
+      setInvoiceReminder(data.invoice_reminder);
 
+      if (invoiceReminder) {
+        setOpen(true);
+      }
       if (data?.address) {
         // Update the form data with the primary address
         setFormData((prev) => ({
@@ -183,7 +190,12 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   useEffect(() => {
     fetchPrimaryAddress();
   }, []);
-
+  
+  useEffect(() => {
+    if (invoiceReminder) {
+      setOpen(true);
+    }
+  }, [invoiceReminder]);
   const googleMapAPIKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   // Define libraries array outside component to prevent unnecessary re-renders
   const libraries: Libraries = ["places"];
@@ -1081,8 +1093,13 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
           Back
         </Button>
         <Button
-          className="bg-black text-white w-[250px]"
+          className={`w-[250px] ${
+            isAccountLocked
+              ? "bg-gray-400 text-gray-600 cursor-not-allowed"
+              : "bg-black text-white hover:bg-gray-800"
+          }`}
           onClick={currentStep === 3 ? handleSubmit : handleNext}
+          disabled={isAccountLocked}
         >
           {currentStep === 3 ? "Place Order" : "Next"}
         </Button>
@@ -1092,6 +1109,13 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         onClose={() => setIsModalOpen(false)}
         status={orderStatus}
         orderNumber={orderNumber}
+      />
+      {/* Invoice Reminder Modal */}
+      <WarningModal
+        open={open}
+        onOpenChange={setOpen}
+        invoiceReminder={invoiceReminder}
+        isAccountLocked={isAccountLocked}
       />
     </div>
   );

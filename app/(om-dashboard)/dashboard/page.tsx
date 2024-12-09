@@ -7,6 +7,7 @@ import { RecentOrdersSection } from "@/components/dashboard/RecentOrdersSection"
 import api from "@/services/api";
 import { log } from "console";
 import Head from "next/head";
+import WarningModal from "@/components/invoice-warning/WarningModal";
 
 // Define your data types
 interface DataType {
@@ -32,13 +33,20 @@ interface OrderRowProps {
   order_status: string;
   order_time: string;
 }
-
+interface InvoiceReminder {
+  type: string;
+  message: string;
+}
 export default function DashboardPage(): JSX.Element {
   const isAuthenticated = useAuth();
   const [data, setData] = useState<DataType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [isAccountLocked, setIsAccountLocked] = useState(false);
+  const [invoiceReminder, setInvoiceReminder] =
+    useState<InvoiceReminder | null>(null);
+  const [open, setOpen] = useState(false);
   const [kpiSummary, setKpiSummary] = useState<null>(null);
   const [recentTransactions, setRecentTransactions] = useState<[]>([]);
   const [recentOrders, setRecentOrders] = useState<OrderRowProps[]>([]);
@@ -51,6 +59,9 @@ export default function DashboardPage(): JSX.Element {
       const response = await api.get("/order-manager/dashboardAnalytics");
 
       const data = await response.data;
+
+      setIsAccountLocked(data.data.isAccountLocked);
+      setInvoiceReminder(data.data.invoice_reminder);
 
       setKpiSummary(data.data.kpiSummary);
       setRecentTransactions(data.data.recentTransactions);
@@ -71,6 +82,12 @@ export default function DashboardPage(): JSX.Element {
       fetchData();
     }
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (invoiceReminder) {
+      setOpen(true);
+    }
+  }, [invoiceReminder]);
 
   return (
     <>
@@ -105,6 +122,13 @@ export default function DashboardPage(): JSX.Element {
           </div>
         </div>
       </div>
+      {/* Invoice Reminder Modal */}
+      <WarningModal
+        open={open}
+        onOpenChange={setOpen}
+        invoiceReminder={invoiceReminder}
+        isAccountLocked={isAccountLocked}
+      />
     </>
   );
 }
