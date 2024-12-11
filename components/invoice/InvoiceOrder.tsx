@@ -24,6 +24,8 @@ interface InvoiceOrderProps {
   order_number: string;
   order_reference_number: string;
   vehicle_type?: string;
+  order_type?: string;
+  reason?: string;
   orderTime: string;
   order_pricing?: string;
 }
@@ -169,7 +171,12 @@ export default function InvoiceOrder({
                     </td>
                   )}
                   <td className="border px-4 py-2 text-center">
-                    <span className="font-medium">{order.vehicle_type}</span>
+                    <p className="font-medium">{order.vehicle_type}</p>
+                    {order.reason && (
+                      <span className="badge bg-gray-100 text-gray-500 text-sm p-1 border border-gray-200 rounded-full">
+                        {order.reason}
+                      </span>
+                    )}
                   </td>
                   <td className="border px-4 py-2 text-center">
                     {order.orderTime}
@@ -177,13 +184,19 @@ export default function InvoiceOrder({
                   <td className="border px-4 py-2 text-center">
                     {order.order_pricing}
                   </td>
-                  <td className="flex border px-4 py-2 gap-2 justify-center">
-                    <a
-                      href={`/orders/order-details/${order.order_number}`}
-                      className="text-green-500 hover:underline rounded-md bg-green-100 p-1"
-                    >
-                      <IconEye />
-                    </a>
+                  <td
+                    className={`px-4 py-2 gap-2 justify-center ${
+                      order.order_type !== "compensation" ? "flex border" : ""
+                    }`}
+                  >
+                    {order.order_type !== "compensation" && (
+                      <a
+                        href={`/orders/order-details/${order.order_number}`}
+                        className="text-green-500 hover:underline rounded-md bg-green-100 p-1"
+                      >
+                        <IconEye />
+                      </a>
+                    )}
                   </td>
                 </tr>
               ))
