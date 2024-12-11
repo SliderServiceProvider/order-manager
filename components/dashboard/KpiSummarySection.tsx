@@ -69,7 +69,7 @@ export function KpiSummarySection({
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
             <SummaryItem
               icon={<IconMoneybag />}
-              title="Total Invoice Value"
+              title="Total Order Value"
               value={`AED ${kpiSummary.totalOrderValue}`}
               change="0%" // Placeholder, update with actual data if available
               bgColor="bg-rose-200"

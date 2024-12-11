@@ -23,6 +23,7 @@ interface InvoiceProps {
   id: number;
   invoice_number: string;
   amount: string;
+  delivery_count: number;
   status?: string;
   invoice_created_at: string;
   view_url?: string;
@@ -75,6 +76,7 @@ export default function InvoiceList() {
         `/order-manager/getInvoices?page=${pagination.current_page}&search=${debouncedSearch}`
       );
       const data = response.data;
+      
       setInvoices(data.data.data);
       setPagination((prev) => ({
         prev_page_url: data.data.prev_page_url,
@@ -159,7 +161,9 @@ export default function InvoiceList() {
                     <span className="font-medium">AED {invoice.amount}</span>
                   </td>
                   <td className="border px-4 py-2 text-center">
-                    <span className="font-medium">{invoice.amount}</span>
+                    <span className="font-medium">
+                      {invoice.delivery_count}
+                    </span>
                   </td>
                   <td className="border px-4 py-2 text-center">
                     <span

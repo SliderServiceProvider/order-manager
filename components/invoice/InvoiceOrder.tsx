@@ -79,13 +79,14 @@ export default function InvoiceOrder({
         `/order-manager/getInvoiceOrders?invoice_id=${invoiceId}&page=${pagination.current_page}&search=${debouncedSearch}`
       );
       const data = response.data;
+      
       setOrders(data.data.data);
-      setPagination((prev) => ({
+      setPagination({
         prev_page_url: data.data.prev_page_url,
         next_page_url: data.data.next_page_url,
         links: data.data.links,
         current_page: data.data.current_page,
-      }));
+      });
     } catch (error) {
       console.error("Error fetching invoices:", error);
     } finally {
@@ -100,11 +101,12 @@ export default function InvoiceOrder({
       if (pageNumber) {
         setPagination((prev) => ({
           ...prev,
-          current_page: parseInt(pageNumber),
+          current_page: parseInt(pageNumber, 10),
         }));
       }
     }
   };
+
 
   // Handle reset button click
   const handleReset = () => {
@@ -225,27 +227,21 @@ export default function InvoiceOrder({
               )
               .map((link, index) => (
                 <PaginationItem key={index}>
-                  {link.url ? (
-                    <PaginationLink
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handlePageChange(link.url);
-                      }}
-                      className={`${
-                        link.active
-                          ? "bg-black text-white"
-                          : "bg-white text-black"
-                      } px-3 py-1 rounded border`}
-                      isActive={link.active}
-                    >
-                      {link.label
-                        .replace("&laquo;", "«")
-                        .replace("&raquo;", "»")}
-                    </PaginationLink>
-                  ) : (
-                    <PaginationEllipsis />
-                  )}
+                  <PaginationLink
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handlePageChange(link.url);
+                    }}
+                    className={`${
+                      link.active
+                        ? "bg-black text-white"
+                        : "bg-white text-black"
+                    } px-3 py-1 rounded border`}
+                    isActive={link.active}
+                  >
+                    {link.label}
+                  </PaginationLink>
                 </PaginationItem>
               ))}
 
