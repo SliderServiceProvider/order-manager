@@ -84,12 +84,6 @@ interface VehicleProp {
   delivery_fee: string;
   is_available: boolean;
 }
-interface SavedCardProp {
-  id: number;
-  payment_method_id: string;
-  brand: string;
-  card_last_four_digit: number;
-}
 interface icon {
   original_image: string;
 }
@@ -99,7 +93,7 @@ interface InvoiceReminder {
   message: string;
 }
 
-export default function OrderForm({ deliveryType }: { deliveryType: string }) {
+export default function OrderFormBulk({ deliveryType }: { deliveryType: string }) {
   const userId = useAppSelector((state) => state.auth.user?.id); // Access user name from Redux state
   const router = useRouter();
   const stripeFormRef = useRef<StripePaymentRef>(null);
@@ -114,7 +108,6 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   const [isInvoiceUser, setIsInvoiceUser] = useState(false);
   const [invoiceReminder, setInvoiceReminder] =
     useState<InvoiceReminder | null>(null);
-  const [savedCards, setSavedCards] = useState<SavedCardProp[]>([]);
   const [address, setAddress] = useState<string | null>(null);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
@@ -126,11 +119,10 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   );
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [orderCost, setOrderCost] = useState(0);
-  const [orderPaymentMethod, setOrderPaymentMethod] = useState<
-    number | string | null
-  >(null);
-
-  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
+  const [orderPaymentMethod, setOrderPaymentMethod] = useState<number | null>(
+    null
+  );
+  const [paymentMethod, setPaymentMethod] = useState(null);
 
   // Reference to the map instance
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -186,7 +178,6 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       setIsAccountLocked(data.isAccountLocked);
       setIsInvoiceUser(data.invoice_order);
       setInvoiceReminder(data.invoice_reminder);
-      setSavedCards(data.userSavedCards);
 
       if (invoiceReminder) {
         setOpen(true);
@@ -445,7 +436,6 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
 
   const handleSubmit = async () => {
     try {
-      
       setIsModalOpen(true);
       setOrderStatus("loading");
       if (!isInvoiceUser) {
@@ -503,8 +493,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     distance: distance || 0,
     duration: duration || 0,
     payment_method: orderPaymentMethod,
-    paymentMethod:
-      orderPaymentMethod === 5 ? paymentMethod : currentPaymentMethod, // Use paymentMethod for saved cards
+    paymentMethod: currentPaymentMethod,
     tasks: [
       {
         task_type_id: 1,
@@ -530,7 +519,6 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   });
 
   const submitOrder = async (payload: Record<string, any>) => {
-
     const response = await api.post("/order-manager/processOrder", payload);
 
     if (response.status === 200) {
@@ -545,11 +533,14 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       }, 2000);
     } else {
       console.error("Error placing order:", response.data);
-      // setIsModalOpen(false);
-      setOrderStatus("error");
-      // alert("Failed to place the order. Please try again.");
+      setIsModalOpen(false);
+      alert("Failed to place the order. Please try again.");
     }
-    
+    // if (response.status === 200) {
+    //   alert("Order placed successfully!");
+    // } else {
+    //   alert("Failed to place the order. Please try again.");
+    // }
   };
 
   // Paste Map Link
@@ -1173,45 +1164,9 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         return (
           <div className="w-1/2 space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 lg:justify-between">
-              {/* Render Saved Cards */}
-              {savedCards.length > 0 && (
-                <>
-                  {savedCards.map((card) => (
-                    <button
-                      key={card.id}
-                      onClick={() => {
-                        console.log(
-                          "Selected Payment Method ID:",
-                          card.payment_method_id
-                        );
-                        setPaymentMethod(card.payment_method_id); // Set saved card
-                        setOrderPaymentMethod(5); // Set order payment method to 5
-                      }}
-                      className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
-                        orderPaymentMethod === 5 &&
-                        paymentMethod === card.payment_method_id
-                          ? "bg-primary text-black"
-                          : "bg-slate-50 hover:bg-primary hover:text-black"
-                      }`}
-                    >
-                      <IconCreditCardPay />
-                      <div>
-                        <p className="font-medium">
-                          **** **** **** {card.card_last_four_digit}
-                        </p>
-                        <p className="text-sm text-gray-500">{card.brand}</p>
-                      </div>
-                    </button>
-                  ))}
-                </>
-              )}
-
               {/* Pay with Balance Button */}
               <button
-                onClick={() => {
-                  setOrderPaymentMethod(4); // Set orderPaymentMethod to 4 for Balance
-                  setPaymentMethod(null); // Clear saved card selection
-                }}
+                onClick={handlePayWithBalance}
                 className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
                   orderPaymentMethod === 4
                     ? "bg-primary text-black"
@@ -1224,12 +1179,9 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
                 </div>
               </button>
 
-              {/* Add Card Button */}
+              {/* Pay with Credit Cards Button */}
               <button
-                onClick={() => {
-                  setOrderPaymentMethod(3); // Set orderPaymentMethod to 3 for Add Card
-                  setPaymentMethod(null); // Clear saved card selection
-                }}
+                onClick={handlePayWithCreditCard}
                 className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
                   orderPaymentMethod === 3
                     ? "bg-primary text-black"
@@ -1242,8 +1194,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
                 </div>
               </button>
             </div>
-
-            {/* Conditionally render Stripe Wrapper */}
+            {/* Conditionally render card-payment div */}
             {orderPaymentMethod === 3 && (
               <div className="card-payment">
                 <StripeWrapperForOrder

@@ -1,8 +1,8 @@
 "use client";
-import OrderForm from "@/components/place-order/OrderForm";
 import React from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
+import OrderFormBulk from "@/components/place-order/OrderFormBulk";
 
 const stripePublicKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 const stripePmcKey = process.env.NEXT_PUBLIC_STRIPE_PMC_KEY;
@@ -16,7 +16,7 @@ const stripePromise = loadStripe(stripePublicKey);
 export default function page() {
   return (
     <Elements stripe={stripePromise}>
-      <OrderForm deliveryType="bulk" />
+      <OrderFormBulk deliveryType="bulk" />
     </Elements>
   );
 }
