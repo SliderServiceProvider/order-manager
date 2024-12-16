@@ -74,7 +74,7 @@ export function Header({ setSidebarOpen }: HeaderProps) {
                 Select Delivery Type
               </DialogTitle>
               <DialogDescription>
-                <div className="flex justify-around py-10">
+                <div className="grid grid-cols-3 gap-5 py-10">
                   <div>
                     <Link
                       href="/place-order"
@@ -86,7 +86,7 @@ export function Header({ setSidebarOpen }: HeaderProps) {
                         alt="Delivery"
                         className="h-20"
                       />
-                      <p>Deliver an Order</p>
+                      Deliver an Order
                     </Link>
                   </div>
                   <div>
@@ -95,12 +95,18 @@ export function Header({ setSidebarOpen }: HeaderProps) {
                       className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
                       onClick={handleLinkClick}
                     >
-                      <img
-                        src="/cod.png"
-                        alt="COD"
-                        className="h-20"
-                      />
-                      <p>Deliver a COD Order</p>
+                      <img src="/cod.png" alt="COD" className="h-20" />
+                      Deliver a COD Order
+                    </Link>
+                  </div>
+                  <div>
+                    <Link
+                      href="/place-order/bulk"
+                      className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
+                      onClick={handleLinkClick}
+                    >
+                      <img src="/cod.png" alt="COD" className="h-20" />
+                      Bulk Order
                     </Link>
                   </div>
                 </div>

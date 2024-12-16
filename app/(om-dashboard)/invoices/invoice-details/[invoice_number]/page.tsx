@@ -2,7 +2,8 @@
 import { use, useEffect, useState } from "react";
 import InvoiceOrder from "@/components/invoice/InvoiceOrder";
 import api from "@/services/api";
-
+import { useRouter } from "next/navigation";
+import { useAppSelector } from "@/hooks/useAuth";
 interface PageProps {
   params: Promise<{
     invoice_number: string;
@@ -15,7 +16,10 @@ interface InvoiceProps {
 }
 
 const Page: React.FC<PageProps> = ({ params }) => {
-  // Unwrap `params` using `React.use()`
+   const isInvoiceUser = useAppSelector(
+      (state) => state.auth.user?.isInvoiceUser
+    ); // Access isInvoiceUser from Redux state
+    const router = useRouter();
   const unwrappedParams = use(params);
   const { invoice_number } = unwrappedParams;
   const [isShowOrderRefNo, setIsShowOrderRefNo] = useState(false);
@@ -37,6 +41,12 @@ const Page: React.FC<PageProps> = ({ params }) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+      if (!isInvoiceUser) {
+        router.push("/dashboard");
+      }
+    }, [isInvoiceUser, router]);
 
   // Fetch the invoice on mount
   useEffect(() => {

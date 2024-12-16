@@ -25,13 +25,24 @@ import { flushSync } from "react-dom";
 
 import { toast, useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-import { IconCurrencyDirham } from "@tabler/icons-react";
+import {
+  IconCreditCard,
+  IconCreditCardPay,
+  IconCurrencyDirham,
+  IconWallet,
+} from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 
 import { OrderStatusModal } from "@/components/place-order/OrderStatusModal";
 // Import the custom hook to access Redux state and dispatch
 import { useAppSelector } from "@/hooks/useAuth";
 import WarningModal from "../invoice-warning/WarningModal";
+import StripeWrapper from "../stripe/StripeWrapper";
+import StripeWrapperForOrder, {
+  StripePaymentRef,
+} from "./StripeWrapperForOrder";
+import { useStripe } from "@stripe/react-stripe-js";
+import { log } from "node:console";
 
 type Location = {
   lat: number;
@@ -85,11 +96,16 @@ interface InvoiceReminder {
 export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   const userId = useAppSelector((state) => state.auth.user?.id); // Access user name from Redux state
   const router = useRouter();
+  const stripeFormRef = useRef<StripePaymentRef>(null);
+  const stripe = useStripe();
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const [loadingPackageScreen, setLoadingPackageScreen] = useState(false);
   const [location, setLocation] = useState(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const [isAccountLocked, setIsAccountLocked] = useState(false);
+  const [isInvoiceUser, setIsInvoiceUser] = useState(false);
   const [invoiceReminder, setInvoiceReminder] =
     useState<InvoiceReminder | null>(null);
   const [address, setAddress] = useState<string | null>(null);
@@ -101,6 +117,10 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleProp | null>(
     null
   );
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [orderCost, setOrderCost] = useState(0);
+  const [orderPaymentMethod, setOrderPaymentMethod] = useState<number | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState(null);
 
   // Reference to the map instance
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -140,7 +160,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [orderStatus, setOrderStatus] = useState<"loading" | "success">(
+  const [orderStatus, setOrderStatus] = useState<"loading" | "success" | "error">(
     "loading"
   );
   const [orderNumber, setOrderNumber] = useState("");
@@ -154,6 +174,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       const response = await api.get("/order-manager/getPrimaryAddress");
       const data = response.data;
       setIsAccountLocked(data.isAccountLocked);
+      setIsInvoiceUser(data.invoice_order);
       setInvoiceReminder(data.invoice_reminder);
 
       if (invoiceReminder) {
@@ -190,7 +211,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   useEffect(() => {
     fetchPrimaryAddress();
   }, []);
-  
+
   useEffect(() => {
     if (invoiceReminder) {
       setOpen(true);
@@ -205,11 +226,15 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     libraries: libraries,
   });
 
-  const steps = [
+  const baseSteps = [
     { id: 1, name: "Pickup Address", icon: MapPin },
     { id: 2, name: "Drop Off Address", icon: MapPin },
     { id: 3, name: "Package", icon: Package },
   ];
+
+  const steps = isInvoiceUser
+    ? baseSteps
+    : [...baseSteps, { id: 4, name: "Payment", icon: CreditCard }];
 
   let debounceTimeout: NodeJS.Timeout | null = null;
 
@@ -232,7 +257,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   };
 
   const handleNext = async () => {
-    setLoadingPackageScreen(true);
+    // setLoadingPackageScreen(true);
     const type = currentStep === 1 ? "pickup" : "dropoff"; // Determine if it's pickup or dropoff
 
     // Address validation
@@ -260,8 +285,54 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         await fetchVehicles(); // Perform async operation
       } catch (error) {}
     }
+    // manage validation for package screen
+    if (currentStep === 3) {
+      // Check receiver number is empty or not
+      if (!selectedVehicle) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Please select a package.",
+        });
+        return;
+      }
+      // Check receiver number is empty or not
+      if (!formData.package.receiver_phone_number.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Please enter a recipient number.",
+        });
+        return;
+      }
+      // Validate schedule time if selectedDate is provided
+      if (selectedDate && !selectedTime) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Please select a time for the selected date.",
+        });
+        return;
+      }
+      if (
+        deliveryType === "cod" &&
+        (!formData.package.cod_amount || formData.package.cod_amount === 0)
+      ) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Please enter a valid COD amount.",
+        });
+        return;
+      }
+    }
+    if (currentStep < steps.length) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      handleSubmit();
+    }
     // Proceed to the next step
-    setCurrentStep((prev) => Math.min(prev + 1, 3));
+    // setCurrentStep((prev) => Math.min(prev + 1, 4));
   };
 
   const handleBack = () => {
@@ -297,10 +368,35 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     }
   };
 
+  const updateOrderCost = (fee: number, tip: number) => {
+    const totalCost = fee + tip;
+    setOrderCost(totalCost);
+  };
+
+  const handleVehicleSelect = (vehicle: VehicleProp) => {
+    if (vehicle.is_available) {
+      const fee = parseFloat(vehicle.delivery_fee);
+      setSelectedVehicle(vehicle);
+      setDeliveryFee(fee);
+      const tip =
+        selectedTip === "custom"
+          ? parseFloat(customTip) || 0
+          : parseFloat(selectedTip.toString()) || 0; // Convert to string for consistency
+      updateOrderCost(fee, tip);
+    }
+  };
+
+  const calculateTotal = () => {
+    const tip =
+      selectedTip === "custom" ? parseFloat(customTip) || 0 : selectedTip || 0;
+    return (deliveryFee + tip).toFixed(2); // Total including delivery fee and tip
+  };
+
   const handleTipSelect = (tip: number | "custom") => {
     setSelectedTip(tip);
     if (tip !== "custom") {
       setCustomTip(""); // Clear custom input if selecting predefined tip
+      updateOrderCost(deliveryFee, tip); // Update order cost
     }
   };
 
@@ -308,117 +404,323 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     const value = e.target.value;
     setCustomTip(value);
     setSelectedTip("custom");
+    const customTipValue = parseFloat(value) || 0;
+    updateOrderCost(deliveryFee, customTipValue); // Update order cost
   };
+
+  const amountInSubunits = Math.round(orderCost * 100);
 
   const handleDateTimeSelect = (date: Date | null, time: string | null) => {
     setSelectedDate(date);
     setSelectedTime(time);
   };
 
+  // Handlers for setting payment methods
+  const handlePayWithBalance = () => {
+    setOrderPaymentMethod(4); // 4 for "Pay with Balance"
+  };
+
+  const handlePayWithCreditCard = () => {
+    setOrderPaymentMethod(3); // 3 for "Pay with Credit Cards"
+  };
+
   const handleSubmit = async () => {
-    // Check receiver number is empty or not
-    if (!selectedVehicle) {
-      toast({
-        variant: "destructive",
-        title: "Submission failed",
-        description: "Please select a package.",
-      });
-      return;
-    }
-    // Check receiver number is empty or not
-    if (!formData.package.receiver_phone_number.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Submission failed",
-        description: "Please enter a recipient number.",
-      });
-      return;
-    }
-    // Validate schedule time if selectedDate is provided
-    if (selectedDate && !selectedTime) {
-      toast({
-        variant: "destructive",
-        title: "Submission failed",
-        description: "Please select a time for the selected date.",
-      });
-      return;
-    }
-    if (
-      deliveryType === "cod" &&
-      (!formData.package.cod_amount || formData.package.cod_amount === 0)
-    ) {
-      toast({
-        variant: "destructive",
-        title: "Submission failed",
-        description: "Please enter a valid COD amount.",
-      });
-      return;
-    }
-
-    setIsModalOpen(true);
-    setOrderStatus("loading");
-    const payload = {
-      source: "order_manager",
-      client_id: userId, // Assuming service type is predefined
-      service_type: deliveryType === "cod" ? 4 : 1,
-      isVendorOrder: false, // is order from deliverect client
-      vehicle_type: selectedVehicle?.id || null, // Selected vehicle ID
-      schedule_time:
-        selectedDate && selectedTime
-          ? `${format(selectedDate, "yyyy-MM-dd")} ${selectedTime}`
-          : "", // Schedule time
-      tip: selectedTip === "custom" ? parseFloat(customTip) || 0 : selectedTip, // Tip amount
-      receiver_phone_number: formData.package.receiver_phone_number || null, // Receiver phone number
-      order_reference_number: formData.package.order_reference_number || null, // Receiver phone number
-      cod_amount: formData.package.cod_amount || 0, // COD amount
-      distance: distance || 0, // Replace with actual distance if calculated
-      duration: duration || 0, // Replace with actual duration if calculated
-      tasks: [
-        {
-          task_type_id: 1, // Pickup task type
-          address: formData.pickup.address,
-          latitude: formData.pickup.location.lat,
-          longitude: formData.pickup.location.lng,
-          short_name: formData.pickup.directions, // You can replace it with dynamic data
-          flat_no: formData.pickup.building || "",
-          cod_amount: 0, // Assuming no COD for pickup
-        },
-        {
-          task_type_id: 2, // Dropoff task type
-          address: formData.dropoff.address,
-          latitude: formData.dropoff.location.lat,
-          longitude: formData.dropoff.location.lng,
-          short_name: formData.dropoff.directions, // You can replace it with dynamic data
-          flat_no: formData.dropoff.building || "",
-          cod_amount: 0,
-        },
-      ],
-    };
-
     try {
-      const response = await api.post("/create-external-order", payload);
-      if (response.status === 200) {
-        // console.log("Order placed successfully:", response.data);
-        const orderNumber = response.data.data.order_number;
-        setOrderNumber(orderNumber);
-        setOrderStatus("success");
+      setIsModalOpen(true);
+      setOrderStatus("loading");
+      if (!isInvoiceUser) {
+        if (orderPaymentMethod === 3) {
+          // Stripe Payment Validation Only for orderPaymentMethod === 3
+          if (!stripe) {
+            alert("Stripe has not been initialized. Please try again later.");
+            return;
+          }
 
-        // Wait for 2 seconds before redirecting
-        setTimeout(() => {
-          setIsModalOpen(false);
-          router.push(`/orders/order-details/${orderNumber}`);
-        }, 2000);
+          const { isValid, paymentMethod } =
+            (await stripeFormRef.current?.validatePayment()) || {};
+
+          if (!isValid) {
+            alert("Payment validation failed. Please check your card details.");
+            setOrderStatus("error");
+            return;
+          }
+
+          // Prepare payload with the payment method
+          const payload = prepareOrderPayload(paymentMethod);
+          await submitOrder(payload);
+        } else {
+          // Prepare payload for other payment methods
+          const payload = prepareOrderPayload(null);
+          await submitOrder(payload);
+        }
       } else {
-        console.error("Error placing order:", response.data);
-        setIsModalOpen(false);
-        alert("Failed to place the order. Please try again.");
+        // Invoice user: No Stripe payment logic
+        const payload = prepareOrderPayload(null);
+        await submitOrder(payload);
       }
-    } catch (error) {
-      console.error("Error submitting the form:", error);
-      setIsModalOpen(false);
-      alert("An error occurred while placing the order.");
+    } catch (error: any) {
+      console.error("Error submitting the order:", error);
+      alert(error.message || "An unexpected error occurred. Please try again.");
     }
   };
+
+  const prepareOrderPayload = (currentPaymentMethod: any) => ({
+    source: "order_manager",
+    business_customer: userId,
+    service_type_id: deliveryType === "cod" ? 4 : 1,
+    payment_type: isInvoiceUser ? 2 : 1,
+    vehicle_id: selectedVehicle?.id || null,
+    isVendorOrder: false, // Is this an order from a vendor client?
+    invoice_order: isInvoiceUser, // Is this an order from a vendor client?
+    schedule_time:
+      selectedDate && selectedTime
+        ? `${format(selectedDate, "yyyy-MM-dd")} ${selectedTime}`
+        : "",
+    tip: selectedTip === "custom" ? parseFloat(customTip) || 0 : selectedTip,
+    recipient_phone: formData.package?.receiver_phone_number || null,
+    order_reference_number: formData.package?.order_reference_number || null,
+    cod_amount: formData.package?.cod_amount || null,
+    distance: distance || 0,
+    duration: duration || 0,
+    payment_method: orderPaymentMethod,
+    paymentMethod: currentPaymentMethod,
+    tasks: [
+      {
+        task_type_id: 1,
+        address: formData.pickup.address,
+        latitude: formData.pickup.location.lat,
+        longitude: formData.pickup.location.lng,
+        flat_no: formData.pickup.building,
+        direction: formData.pickup?.directions || "",
+        receiver_phone_number: null,
+        cod_amount: null,
+      },
+      {
+        task_type_id: 2,
+        address: formData.dropoff.address,
+        latitude: formData.dropoff.location.lat,
+        longitude: formData.dropoff.location.lng,
+        flat_no: formData.dropoff.building,
+        direction: formData.dropoff?.directions || "",
+        receiver_phone_number: formData.package?.receiver_phone_number || null,
+        cod_amount: formData.package?.cod_amount || 0,
+      },
+    ],
+  });
+
+  const submitOrder = async (payload: Record<string, any>) => {
+    const response = await api.post("/order-manager/processOrder", payload);
+
+    if (response.status === 200) {
+      
+      const orderNumber = response.data.data;
+      setOrderNumber(orderNumber);
+      setOrderStatus("success");
+
+      // Wait for 2 seconds before processing the result
+      setTimeout(() => {
+        setIsModalOpen(false);
+        router.push(`/orders/order-details/${orderNumber}`);
+      }, 2000);
+    } else {
+      console.error("Error placing order:", response.data);
+      setIsModalOpen(false);
+      alert("Failed to place the order. Please try again.");
+    }
+    // if (response.status === 200) {
+    //   alert("Order placed successfully!");
+    // } else {
+    //   alert("Failed to place the order. Please try again.");
+    // }
+  };
+
+  // const handleSubmit = async () => {
+  //   try {
+  //     if (!isInvoiceUser) {
+  //       // Step 1: Validate Stripe payment
+  //       const { isValid, paymentMethod } =
+  //         (await stripeFormRef.current?.validatePayment()) || {};
+
+  //       if (!isValid) {
+  //         alert("Payment validation failed. Please check your card details.");
+  //         return;
+  //       }
+
+  //       // Step 2: Create Stripe Payment Intent
+  //       const paymentIntentFormData = {
+  //         amount: Math.round(orderCost * 100), // Convert order cost to cents
+  //         currency: "aed",
+  //       };
+
+  //       const paymentIntentResponse = await api.post(
+  //         "/order-manager/invoice/createPaymentIntent",
+  //         paymentIntentFormData
+  //       );
+
+  //       const { clientSecret } = paymentIntentResponse.data;
+
+  //       if (!stripe) {
+  //         throw new Error("Stripe hasn't loaded yet. Please try again.");
+  //       }
+
+  //       // Step 3: Confirm the payment with Stripe
+  //       const paymentResult = await stripe.confirmCardPayment(clientSecret, {
+  //         payment_method: {
+  //           billing_details: {
+  //             address: {
+  //               country: "AE", // Set the country explicitly
+  //             },
+  //           },
+  //         },
+  //       });
+
+  //       // Check the payment result
+  //       if (paymentResult.error) {
+  //         throw new Error(paymentResult.error.message || "Payment failed.");
+  //       }
+
+  //       if (paymentResult.paymentIntent?.status === "succeeded") {
+  //         // Proceed to order creation only if payment was successful
+  //         console.log("Payment succeeded:", paymentResult.paymentIntent);
+  //         // Step 5: Prepare the order payload
+  //         const payload = {
+  //           source: "order_manager",
+  //           client_id: userId,
+  //           service_type: deliveryType === "cod" ? 4 : 1, // Service type based on deliveryType
+  //           isVendorOrder: false, // Is this an order from a vendor client?
+  //           vehicle_type: selectedVehicle?.id || null, // Selected vehicle ID
+  //           schedule_time:
+  //             selectedDate && selectedTime
+  //               ? `${format(selectedDate, "yyyy-MM-dd")} ${selectedTime}`
+  //               : "",
+  //           tip:
+  //             selectedTip === "custom"
+  //               ? parseFloat(customTip) || 0
+  //               : selectedTip,
+  //           receiver_phone_number:
+  //             formData.package?.receiver_phone_number || null,
+  //           order_reference_number:
+  //             formData.package?.order_reference_number || null,
+  //           cod_amount: formData.package?.cod_amount || 0,
+  //           distance: distance || 0,
+  //           duration: duration || 0,
+  //           tasks: [
+  //             {
+  //               task_type_id: 1, // Pickup task type
+  //               address: formData.pickup?.address || "",
+  //               latitude: formData.pickup?.location?.lat || 0,
+  //               longitude: formData.pickup?.location?.lng || 0,
+  //               short_name: formData.pickup?.directions || "",
+  //               flat_no: formData.pickup?.building || "",
+  //               cod_amount: 0,
+  //             },
+  //             {
+  //               task_type_id: 2, // Dropoff task type
+  //               address: formData.dropoff?.address || "",
+  //               latitude: formData.dropoff?.location?.lat || 0,
+  //               longitude: formData.dropoff?.location?.lng || 0,
+  //               short_name: formData.dropoff?.directions || "",
+  //               flat_no: formData.dropoff?.building || "",
+  //               cod_amount: formData.package?.cod_amount || 0,
+  //             },
+  //           ],
+  //         };
+
+  //         // Step 6: Submit the order
+  //         const orderResponse = await api.post(
+  //           "/create-external-order",
+  //           payload
+  //         );
+
+  //         if (orderResponse.status === 200) {
+  //           const orderNumber = orderResponse.data.data.order_number;
+  //           setOrderNumber(orderNumber);
+  //           setOrderStatus("success");
+
+  //           // Wait for 2 seconds before processing the result
+  //           setTimeout(() => {
+  //             setIsModalOpen(false);
+  //             router.push(`/orders/order-details/${orderNumber}`);
+  //           }, 2000);
+  //         } else {
+  //           console.error("Error placing order:", orderResponse.data);
+  //           setIsModalOpen(false);
+  //           alert("Failed to place the order. Please try again.");
+  //         }
+  //       } else {
+  //         throw new Error("Payment did not succeed. Please try again.");
+  //       }
+
+  //     } else {
+  //       // For isInvoiceUser == true, proceed with order creation directly
+  //       const payload = {
+  //         source: "order_manager",
+  //         client_id: userId,
+  //         service_type: deliveryType === "cod" ? 4 : 1,
+  //         isVendorOrder: false,
+  //         vehicle_type: selectedVehicle?.id || null,
+  //         schedule_time:
+  //           selectedDate && selectedTime
+  //             ? `${format(selectedDate, "yyyy-MM-dd")} ${selectedTime}`
+  //             : "",
+  //         tip:
+  //           selectedTip === "custom" ? parseFloat(customTip) || 0 : selectedTip,
+  //         receiver_phone_number:
+  //           formData.package?.receiver_phone_number || null,
+  //         order_reference_number:
+  //           formData.package?.order_reference_number || null,
+  //         cod_amount: formData.package?.cod_amount || 0,
+  //         distance: distance || 0,
+  //         duration: duration || 0,
+  //         tasks: [
+  //           {
+  //             task_type_id: 1, // Pickup task type
+  //             address: formData.pickup?.address || "",
+  //             latitude: formData.pickup?.location?.lat || 0,
+  //             longitude: formData.pickup?.location?.lng || 0,
+  //             short_name: formData.pickup?.directions || "",
+  //             flat_no: formData.pickup?.building || "",
+  //             cod_amount: 0,
+  //           },
+  //           {
+  //             task_type_id: 2, // Dropoff task type
+  //             address: formData.dropoff?.address || "",
+  //             latitude: formData.dropoff?.location?.lat || 0,
+  //             longitude: formData.dropoff?.location?.lng || 0,
+  //             short_name: formData.dropoff?.directions || "",
+  //             flat_no: formData.dropoff?.building || "",
+  //             cod_amount: formData.package?.cod_amount || 0,
+  //           },
+  //         ],
+  //       };
+
+  //       // Directly create the order if isInvoiceUser is true
+  //       const orderResponse = await api.post("/create-external-order", payload);
+
+  //       if (orderResponse.status === 200) {
+  //         const orderNumber = orderResponse.data.data.order_number;
+  //         setOrderNumber(orderNumber);
+  //         setOrderStatus("success");
+
+  //         setTimeout(() => {
+  //           setIsModalOpen(false);
+  //           router.push(`/orders/order-details/${orderNumber}`);
+  //         }, 2000);
+  //       } else {
+  //         console.error("Error placing order:", orderResponse.data);
+  //         setIsModalOpen(false);
+  //         alert("Failed to place the order. Please try again.");
+  //       }
+  //     }
+  //   } catch (error:any) {
+  //     console.error("Error submitting the form:", error);
+  //     setIsModalOpen(false);
+  //     alert(
+  //       error.message ||
+  //         "An unexpected error occurred while processing the order. Please try again."
+  //     );
+  //   }
+  // };
 
   // Paste Map Link
   const handlePasteLocation: React.ClipboardEventHandler<
@@ -803,10 +1105,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
                         {vehicles.map((vehicle) => (
                           <button
                             key={vehicle.id}
-                            onClick={() =>
-                              vehicle.is_available &&
-                              setSelectedVehicle(vehicle)
-                            }
+                            onClick={() => handleVehicleSelect(vehicle)}
                             className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg ${
                               vehicle.is_available
                                 ? ""
@@ -906,6 +1205,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
                           onClick={() => {
                             setSelectedTip(0); // Reset the selected tip
                             setCustomTip(""); // Clear custom tip input
+                            updateOrderCost(deliveryFee, 0); // Update the order cost to exclude tip
                           }}
                           className="text-xs text-red-500 border border-red-500 rounded-lg px-2 py-1 hover:bg-red-100"
                         >
@@ -1014,12 +1314,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
                       </span>
                       <p>
                         <span className="text-sm mr-1">AED</span>
-                        {selectedVehicle
-                          ? parseFloat(selectedVehicle.delivery_fee) +
-                            (selectedTip === "custom"
-                              ? parseFloat(customTip) || 0
-                              : selectedTip || 0)
-                          : "0"}
+                        {calculateTotal()}
                       </p>
                     </div>
                   </div>
@@ -1043,6 +1338,51 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
               </div>
             </div>
           </>
+        );
+      case 4:
+        return (
+          <div className="w-1/2 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 lg:justify-between">
+              {/* Pay with Balance Button */}
+              <button
+                onClick={handlePayWithBalance}
+                className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
+                  orderPaymentMethod === 4
+                    ? "bg-primary text-black"
+                    : "bg-slate-50 hover:bg-primary hover:text-black"
+                }`}
+              >
+                <IconWallet />
+                <div>
+                  <p className="font-medium">Pay with Balance</p>
+                </div>
+              </button>
+
+              {/* Pay with Credit Cards Button */}
+              <button
+                onClick={handlePayWithCreditCard}
+                className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
+                  orderPaymentMethod === 3
+                    ? "bg-primary text-black"
+                    : "bg-slate-50 hover:bg-primary hover:text-black"
+                }`}
+              >
+                <IconCreditCardPay />
+                <div>
+                  <p className="font-medium">Add Card</p>
+                </div>
+              </button>
+            </div>
+            {/* Conditionally render card-payment div */}
+            {orderPaymentMethod === 3 && (
+              <div className="card-payment">
+                <StripeWrapperForOrder
+                  ref={stripeFormRef}
+                  amount={amountInSubunits}
+                />
+              </div>
+            )}
+          </div>
         );
       default:
         return null;
@@ -1098,10 +1438,14 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
               ? "bg-gray-400 text-gray-600 cursor-not-allowed"
               : "bg-black text-white hover:bg-gray-800"
           }`}
-          onClick={currentStep === 3 ? handleSubmit : handleNext}
+          onClick={handleNext}
           disabled={isAccountLocked}
         >
-          {currentStep === 3 ? "Place Order" : "Next"}
+          {currentStep === 4
+            ? `Place Order AED ${calculateTotal()}`
+            : currentStep === steps.length
+            ? "Place Order"
+            : "Next"}
         </Button>
       </div>
       <OrderStatusModal

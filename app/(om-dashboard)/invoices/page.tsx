@@ -1,8 +1,9 @@
-"use client"
-import InvoiceList from '@/components/invoice/InvoiceList';
-import { Button } from '@/components/ui/button';
-import { IconCreditCardPay } from '@tabler/icons-react';
-import React, { useEffect, useState } from 'react'
+"use client";
+import InvoiceList from "@/components/invoice/InvoiceList";
+import { Button } from "@/components/ui/button";
+import { IconCreditCardPay } from "@tabler/icons-react";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -10,9 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import StripeWrapper from '@/components/stripe/StripeWrapper';
-import api from '@/services/api';
+import StripeWrapper from "@/components/stripe/StripeWrapper";
+import api from "@/services/api";
+import { useAppSelector } from "@/hooks/useAuth";
+import { log } from "node:console";
 export default function page() {
+  const isInvoiceUser = useAppSelector(
+    (state) => state.auth.user?.isInvoiceUser
+  ); // Access isInvoiceUser from Redux state
+  const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Initial loading state
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -25,12 +33,11 @@ export default function page() {
   const fetchInvoiceAmount = async () => {
     try {
       const response = await api.get("/order-manager/getInvoiceAmount");
-      console.log("API Response:", response.data);
+
       const amount = response.data?.data; // Access the nested "data" field
-      console.log("Parsed Amount:", amount);
+
       setInvoiceAmount(amount ?? 0); // Default to 0 if null
     } catch (error) {
-      console.error("Error fetching invoice amount:", error);
       setInvoiceAmount(0); // Fallback in case of error
     } finally {
       setIsLoading(false); // Loading complete
@@ -43,8 +50,13 @@ export default function page() {
     fetchInvoiceAmount();
   }, []);
 
-  const amountInSubunits = Math.round(invoiceAmount * 100);
+  useEffect(() => {
+    if (!isInvoiceUser) {
+      router.push("/dashboard");
+    }
+  }, [isInvoiceUser, router]);
 
+  const amountInSubunits = Math.round(invoiceAmount * 100);
 
   const handleCancelRequest = () => {
     setShowRequestModal(false);

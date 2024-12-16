@@ -1,6 +1,6 @@
-"use client"
-import OrderForm from '@/components/place-order/OrderForm'
-import React from 'react'
+"use client";
+import OrderForm from "@/components/place-order/OrderForm";
+import React from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
 
@@ -16,7 +16,7 @@ const stripePromise = loadStripe(stripePublicKey);
 export default function page() {
   return (
     <Elements stripe={stripePromise}>
-      <OrderForm deliveryType="normal" />
+      <OrderForm deliveryType="bulk" />
     </Elements>
   );
 }

@@ -103,6 +103,7 @@ const Page: React.FC<PageProps> = ({ params }) => {
         { key: "Payable Amount", value: order.payable_amount },
         { key: "Recipient Number", value: order.recipient_phone },
         { key: "Order Cost", value: order.order_cost },
+        { key: "Cod Amount", value: order.cod_amount },
       ]
     : [];
   const PickupData = order?.pickup

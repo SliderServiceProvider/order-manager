@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAppSelector, useAuth } from "@/hooks/useAuth";
 import { KpiSummarySection } from "@/components/dashboard/KpiSummarySection";
 import { RecentTransactionsSection } from "@/components/dashboard/RecentTransactionsSection";
 import { RecentOrdersSection } from "@/components/dashboard/RecentOrdersSection";
@@ -38,6 +38,9 @@ interface InvoiceReminder {
   message: string;
 }
 export default function DashboardPage(): JSX.Element {
+  const isInvoiceUser = useAppSelector(
+    (state) => state.auth.user?.isInvoiceUser
+  ); // Access isInvoiceUser from Redux state
   const isAuthenticated = useAuth();
   const [data, setData] = useState<DataType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,19 +101,21 @@ export default function DashboardPage(): JSX.Element {
           <div>Loading KPI Summary...</div> // Optional loading message
         )}
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
-          <div className="col-span-12 ltablet:col-span-12 flex">
-            <div className="w-full flex-grow">
-              {recentTransactions ? (
-                <RecentTransactionsSection
-                  recentTransactions={recentTransactions}
-                />
-              ) : (
-                <div>Loading recentTransactions Summary...</div> // Optional loading message
-              )}
+        {isInvoiceUser && (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
+            <div className="col-span-12 ltablet:col-span-12 flex">
+              <div className="w-full flex-grow">
+                {recentTransactions ? (
+                  <RecentTransactionsSection
+                    recentTransactions={recentTransactions}
+                  />
+                ) : (
+                  <div>Loading recentTransactions Summary...</div> // Optional loading message
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
           <div className="col-span-12 ltablet:col-span-12">
@@ -128,7 +133,7 @@ export default function DashboardPage(): JSX.Element {
         onOpenChange={setOpen}
         invoiceReminder={invoiceReminder}
         isAccountLocked={isAccountLocked}
-        isFromDashBoard = {true}
+        isFromDashBoard={true}
       />
     </>
   );

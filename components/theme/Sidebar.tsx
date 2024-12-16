@@ -16,7 +16,17 @@ import {
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { IconBuilding, IconGps, IconInbox, IconMessage, IconPackage, IconReceipt, IconUserBolt, IconUserCog, IconWallet } from "@tabler/icons-react";
+import {
+  IconBuilding,
+  IconGps,
+  IconInbox,
+  IconMessage,
+  IconPackage,
+  IconReceipt,
+  IconUserBolt,
+  IconUserCog,
+  IconWallet,
+} from "@tabler/icons-react";
 
 // Import the custom hook to access Redux state and dispatch
 import { useAppSelector, useAppDispatch } from "@/hooks/useAuth";
@@ -32,6 +42,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { log } from "node:console";
 
 interface NavItem {
   title: string;
@@ -49,6 +60,11 @@ const navigation: NavItem[] = [
   {
     title: "Order",
     href: "/orders",
+    icon: IconPackage,
+  },
+  {
+    title: "My Balance",
+    href: "/my-balance",
     icon: IconPackage,
   },
   // {
@@ -90,14 +106,26 @@ interface SidebarProps {
 }
 
 export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
+  const isInvoiceUser = useAppSelector(
+    (state) => state.auth.user?.isInvoiceUser
+  ); // Access isInvoiceUser from Redux state
+
   const pathname = usePathname();
   const dispatch = useAppDispatch();
   const router = useRouter();
 
+  // Filter navigation items based on isInvoiceUser
+  const filteredNavigation = React.useMemo(
+    () =>
+      navigation.filter(
+        (item) => !(item.title === "Invoice List" && !isInvoiceUser)
+      ),
+    [isInvoiceUser]
+  );
+
   // Handle logout by dispatching the logout action and redirecting to the login page
   const handleLogout = () => {
     dispatch(logout());
-    localStorage.removeItem("token"); // Remove token from localStorage
     router.push("/"); // Redirect to login or home page
   };
 
@@ -125,7 +153,7 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             </Button>
           </div>
           <nav className="sidebar-menu space-y-1 px-2 py-4">
-            {navigation.map((item, index) => (
+            {filteredNavigation.map((item, index) => (
               <NavGroup key={index} item={item} pathname={pathname} />
             ))}
           </nav>
@@ -237,4 +265,3 @@ function NavGroup({ item, pathname }: { item: NavItem; pathname: string }) {
     </div>
   );
 }
-
