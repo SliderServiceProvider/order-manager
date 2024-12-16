@@ -329,6 +329,14 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1);
     } else {
+      if (!isInvoiceUser && !orderPaymentMethod) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Please select a payment method.",
+        });
+        return;
+      }
       handleSubmit();
     }
     // Proceed to the next step
@@ -426,6 +434,8 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
 
   const handleSubmit = async () => {
     try {
+      
+
       setIsModalOpen(true);
       setOrderStatus("loading");
       if (!isInvoiceUser) {
