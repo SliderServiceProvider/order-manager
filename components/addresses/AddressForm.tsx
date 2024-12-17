@@ -65,7 +65,7 @@ export default function AddressForm({
   const mapRef = useRef<google.maps.Map | null>(null);
   const previousCenter = useRef<Coordinates | null>(null); // To track the last known center
   const shouldGeocode = useRef(true); // To prevent unnecessary geocoding
-
+  const [clearInputTrigger, setClearInputTrigger] = useState(false);
   const libraries: Libraries = ["places"];
   const { isLoaded } = useLoadScript({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
@@ -430,6 +430,7 @@ export default function AddressForm({
                 <Autocomplete
                   isLoaded={isLoaded}
                   onLocationSelect={handleLocationSelect}
+                  clearInputTrigger={clearInputTrigger}
                 />
               </div>
 
