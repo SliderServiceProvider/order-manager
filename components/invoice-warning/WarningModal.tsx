@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import Link from "next/link";
+import { log } from "node:console";
 
 interface InvoiceReminder {
   type: string;
@@ -48,6 +49,7 @@ export default function WarningModal({
     }
   };
 
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
@@ -68,7 +70,9 @@ export default function WarningModal({
         <div className="flex items-start space-x-2 p-2 rounded-lg bg-orange-50 mt-2">
           <AlertTriangle className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
           <DialogDescription className="text-base text-foreground">
-            {invoiceReminder?.message}
+            {isAccountLocked && !invoiceReminder?.message?.trim()
+              ? "Your account is temporarily locked due to unpaid invoices. Please settle your balance to restore full access. Order creation is currently disabled."
+              : invoiceReminder?.message}
           </DialogDescription>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 mt-4">

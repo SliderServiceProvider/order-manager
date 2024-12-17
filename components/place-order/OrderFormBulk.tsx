@@ -230,9 +230,12 @@ export default function OrderFormBulk({
       setInvoiceReminder(data.invoice_reminder);
       setSavedCards(data.userSavedCards);
 
-      if (invoiceReminder) {
+      if (data.isAccountLocked) {
+        setOpen(true);
+      } else if (data.invoice_reminder) {
         setOpen(true);
       }
+
 
       if (data?.address) {
         // Update the form data with the primary address
@@ -266,11 +269,14 @@ export default function OrderFormBulk({
     fetchPrimaryAddress();
   }, [fetchPrimaryAddress]);
 
-  useEffect(() => {
-    if (invoiceReminder) {
-      setOpen(true);
-    }
-  }, [invoiceReminder]);
+ useEffect(() => {
+   if (isAccountLocked) {
+     setOpen(true); // Open modal if account is locked
+   } else if (invoiceReminder) {
+     setOpen(true); // Open modal if there's an invoice reminder
+   }
+ }, [isAccountLocked, invoiceReminder]);
+
   const googleMapAPIKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   // Define libraries array outside component to prevent unnecessary re-renders
   const libraries: Libraries = ["places"];

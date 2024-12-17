@@ -72,6 +72,12 @@ export default function DashboardPage(): JSX.Element {
       setBrandsData(data.data.topBrands);
       setLocationsData(data.data.getLocations);
       setError(null);
+
+      if (data.data.isAccountLocked) {
+        setOpen(true);
+      } else if (data.data.invoice_reminder) {
+        setOpen(true);
+      }
     } catch (err) {
       setError("Failed to fetch data");
     } finally {
@@ -87,10 +93,12 @@ export default function DashboardPage(): JSX.Element {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (invoiceReminder) {
-      setOpen(true);
+    if (isAccountLocked) {
+      setOpen(true); // Open modal if account is locked
+    } else if (invoiceReminder) {
+      setOpen(true); // Open modal if there's an invoice reminder
     }
-  }, [invoiceReminder]);
+  }, [isAccountLocked, invoiceReminder]);
 
   return (
     <>
