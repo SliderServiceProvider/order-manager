@@ -124,6 +124,15 @@ const Page: React.FC<PageProps> = ({ params }) => {
       ]
     : [];
 
+    const DropOffDataTwo = order?.drop_off_two
+      ? [
+          { key: "Address", value: order.drop_off_two.address },
+          { key: "Flat/Building No", value: order.drop_off_two.flat_no },
+          { key: "Instruction", value: order.drop_off_two.direction },
+          { key: "City", value: order.drop_off_two.city },
+        ]
+      : [];
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -206,6 +215,28 @@ const Page: React.FC<PageProps> = ({ params }) => {
             </TableBody>
           </Table>
         </Card>
+
+        {DropOffDataTwo.length > 0 && (
+          <Card className="w-4/12">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[160px]">
+                    Dropoff Two Information
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {DropOffDataTwo.map((data, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{data.key}</TableCell>
+                    <TableCell>{data.value}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
       </div>
     </div>
   );

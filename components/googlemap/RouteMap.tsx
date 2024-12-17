@@ -10,9 +10,15 @@ type RouteMapProps = {
   isLoaded: boolean; // Receive `isLoaded` from the parent
   pickup: Location;
   dropoff: Location;
+  dropoffTwo?: Location | null; // New optional waypoint
 };
 
-const RouteMap: React.FC<RouteMapProps> = ({ isLoaded, pickup, dropoff }) => {
+const RouteMap: React.FC<RouteMapProps> = ({
+  isLoaded,
+  pickup,
+  dropoff,
+  dropoffTwo,
+}) => {
   const [directions, setDirections] =
     useState<google.maps.DirectionsResult | null>(null);
 
@@ -20,6 +26,16 @@ const RouteMap: React.FC<RouteMapProps> = ({ isLoaded, pickup, dropoff }) => {
     if (!window.google || !pickup.lat || !dropoff.lat) return;
 
     const directionsService = new window.google.maps.DirectionsService();
+
+    // Define waypoints if `dropoffTwo` has values
+    const waypoints = dropoffTwo
+      ? [
+          {
+            location: { lat: dropoffTwo.lat, lng: dropoffTwo.lng },
+            stopover: true,
+          },
+        ]
+      : [];
 
     directionsService.route(
       {
@@ -31,6 +47,7 @@ const RouteMap: React.FC<RouteMapProps> = ({ isLoaded, pickup, dropoff }) => {
           lat: dropoff.lat,
           lng: dropoff.lng,
         },
+        waypoints: waypoints, // Add waypoints here
         travelMode: window.google.maps.TravelMode.DRIVING,
       },
       (result, status) => {
@@ -41,7 +58,7 @@ const RouteMap: React.FC<RouteMapProps> = ({ isLoaded, pickup, dropoff }) => {
         }
       }
     );
-  }, [pickup, dropoff]);
+  }, [pickup, dropoff, dropoffTwo]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -54,16 +71,14 @@ const RouteMap: React.FC<RouteMapProps> = ({ isLoaded, pickup, dropoff }) => {
   return (
     <GoogleMap zoom={15} center={pickup} mapContainerClassName="w-full h-full">
       <Marker position={pickup} />
+      {dropoffTwo && <Marker position={dropoffTwo} />}
       <Marker position={dropoff} />
       {directions && (
         <DirectionsRenderer
           directions={directions}
           options={{
             suppressMarkers: true,
-            polylineOptions: {
-              strokeColor: "#000",
-              strokeWeight: 5,
-            },
+            polylineOptions: { strokeColor: "#000", strokeWeight: 5 },
           }}
         />
       )}

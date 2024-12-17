@@ -53,6 +53,8 @@ type AddressData = {
   address: string;
   building: string;
   directions: string;
+  receiver_phone_number: string;
+  cod_amount: number;
   location: Location;
 };
 
@@ -67,7 +69,9 @@ type PackageData = {
 type FormData = {
   pickup: AddressData;
   dropoff: AddressData;
+  dropoffTwo: AddressData;
   package: PackageData;
+  payment?: any; // Add if `payment` has a specific structure, otherwise use `any`
 };
 
 interface Locations {
@@ -82,18 +86,63 @@ interface VehicleProp {
   package_name: string;
   icon: icon;
   delivery_fee: string;
+  order_cost: string;
   is_available: boolean;
 }
 interface icon {
   original_image: string;
 }
-
+interface SavedCardProp {
+  id: number;
+  payment_method_id: string;
+  brand: string;
+  card_last_four_digit: number;
+}
 interface InvoiceReminder {
   type: string;
   message: string;
 }
 
-export default function OrderFormBulk({ deliveryType }: { deliveryType: string }) {
+// Initial Form Data with Explicit Type
+const initialFormData: FormData = {
+  pickup: {
+    address: "",
+    building: "",
+    directions: "",
+    receiver_phone_number: "",
+    cod_amount: 0,
+    location: { lat: 24.4539, lng: 54.3773 }, // Default to Abu Dhabi
+  },
+  dropoff: {
+    address: "",
+    building: "",
+    directions: "",
+    receiver_phone_number: "",
+    cod_amount: 0,
+    location: { lat: 24.4539, lng: 54.3773 },
+  },
+  dropoffTwo: {
+    address: "",
+    building: "",
+    directions: "",
+    receiver_phone_number: "",
+    cod_amount: 0,
+    location: { lat: 24.4539, lng: 54.3773 },
+  },
+  package: {
+    vehicle_type: 0,
+    receiver_phone_number: "",
+    tip: 0,
+    order_reference_number: "",
+    cod_amount: 0,
+  },
+};
+
+export default function OrderFormBulk({
+  deliveryType,
+}: {
+  deliveryType: string;
+}) {
   const userId = useAppSelector((state) => state.auth.user?.id); // Access user name from Redux state
   const router = useRouter();
   const stripeFormRef = useRef<StripePaymentRef>(null);
@@ -104,11 +153,14 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
   const [location, setLocation] = useState(null);
   const [status, setStatus] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [clearInputTrigger, setClearInputTrigger] = useState(false);
+  const [pasteLocationInput, setPasteLocationInput] = useState("");
   const [isAccountLocked, setIsAccountLocked] = useState(false);
   const [isInvoiceUser, setIsInvoiceUser] = useState(false);
   const [invoiceReminder, setInvoiceReminder] =
     useState<InvoiceReminder | null>(null);
   const [address, setAddress] = useState<string | null>(null);
+  const [savedCards, setSavedCards] = useState<SavedCardProp[]>([]);
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [primaryAddress, setPrimaryAddress] = useState(null);
@@ -122,7 +174,7 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
   const [orderPaymentMethod, setOrderPaymentMethod] = useState<number | null>(
     null
   );
-  const [paymentMethod, setPaymentMethod] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
 
   // Reference to the map instance
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -135,31 +187,10 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedTip, setSelectedTip] = useState<number | "custom">(0);
   const [customTip, setCustomTip] = useState<string>("");
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+
   const shouldGeocode = useRef(true); // To prevent unnecessary geocoding
-  const [formData, setFormData] = useState<FormData>({
-    pickup: {
-      address: "",
-      building: "",
-      directions: "",
-      // receiver_phone_number: "",
-      location: { lat: 24.4539, lng: 54.3773 }, // Default to Abu Dhabi
-    },
-    dropoff: {
-      address: "",
-      building: "",
-      directions: "",
-      // receiver_phone_number: "",
-      location: { lat: 24.4539, lng: 54.3773 },
-    },
-    package: {
-      vehicle_type: 0,
-      receiver_phone_number: "",
-      tip: 0,
-      order_reference_number: "",
-      cod_amount: 0,
-    },
-  });
+  const [formData, setFormData] = useState<FormData>(initialFormData);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [orderStatus, setOrderStatus] = useState<
@@ -168,20 +199,41 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
   const [orderNumber, setOrderNumber] = useState("");
   const [open, setOpen] = useState(false);
 
-  // Fetch Primary Address to show as pickup location
-  const fetchPrimaryAddress = async () => {
+  // Mock getCurrentLocation function (replace with your actual implementation)
+  const getCurrentLocation = useCallback(
+    async (
+      setFormData: React.Dispatch<React.SetStateAction<FormData>>,
+      locationType: string
+    ) => {
+      // Implement your current location fetching logic here
+      // This is a placeholder implementation
+      setFormData((prev) => ({
+        ...prev,
+        [locationType]: {
+          ...prev[locationType as keyof FormData],
+          location: { lat: 24.4539, lng: 54.3773 },
+        },
+      }));
+    },
+    []
+  );
+
+  const fetchPrimaryAddress = useCallback(async () => {
     setLoading(true);
 
     try {
       const response = await api.get("/order-manager/getPrimaryAddress");
       const data = response.data;
+
       setIsAccountLocked(data.isAccountLocked);
       setIsInvoiceUser(data.invoice_order);
       setInvoiceReminder(data.invoice_reminder);
+      setSavedCards(data.userSavedCards);
 
       if (invoiceReminder) {
         setOpen(true);
       }
+
       if (data?.address) {
         // Update the form data with the primary address
         setFormData((prev) => ({
@@ -208,11 +260,11 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
     } finally {
       setLoading(false);
     }
-  };
+  }, [getCurrentLocation, invoiceReminder, setFormData]);
 
   useEffect(() => {
     fetchPrimaryAddress();
-  }, []);
+  }, [fetchPrimaryAddress]);
 
   useEffect(() => {
     if (invoiceReminder) {
@@ -231,12 +283,18 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
   const baseSteps = [
     { id: 1, name: "Pickup Address", icon: MapPin },
     { id: 2, name: "Drop Off Address", icon: MapPin },
-    { id: 3, name: "Package", icon: Package },
   ];
+
+  // Add Drop Off Address Two step if deliveryType is "bulk"
+  if (deliveryType === "bulk") {
+    baseSteps.push({ id: 3, name: "Drop Off Address Two", icon: MapPin });
+  }
+
+  baseSteps.push({ id: 4, name: "Package", icon: Package });
 
   const steps = isInvoiceUser
     ? baseSteps
-    : [...baseSteps, { id: 4, name: "Payment", icon: CreditCard }];
+    : [...baseSteps, { id: 5, name: "Payment", icon: CreditCard }];
 
   let debounceTimeout: NodeJS.Timeout | null = null;
 
@@ -246,7 +304,23 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
       return;
     }
 
-    const type = currentStep === 1 ? "pickup" : "dropoff";
+    // const type = currentStep === 1 ? "pickup" : "dropoff";
+
+    let type: "pickup" | "dropoff" | "dropoffTwo" | "package" | "payment";
+    if (currentStep === 1) {
+      type = "pickup";
+    } else if (currentStep === 2) {
+      type = "dropoff";
+    } else if (currentStep === 3) {
+      type = "dropoffTwo";
+    } else if (currentStep === 4) {
+      type = "package";
+    } else if (currentStep === 5) {
+      type = "payment";
+    } else {
+      console.warn("Invalid step for location selection");
+      return;
+    }
 
     setFormData((prev) => ({
       ...prev,
@@ -259,37 +333,78 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
   };
 
   const handleNext = async () => {
-    // setLoadingPackageScreen(true);
-    const type = currentStep === 1 ? "pickup" : "dropoff"; // Determine if it's pickup or dropoff
-
-    // Address validation
-    if (!formData[type].address.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Submission failed",
-        description: `Please select a ${type} address before proceeding.`,
-      });
-      return; // Prevent navigation to the next step
-    }
-    // Building validation only for dropoff
-    if (type === "dropoff" && !formData.dropoff.building.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Submission failed",
-        description: "Please enter a valid building number for the dropoff.",
-      });
+    let type: "pickup" | "dropoff" | "dropoffTwo" | "package" | "payment";
+    if (currentStep === 1) {
+      type = "pickup";
+    } else if (currentStep === 2) {
+      type = "dropoff";
+    } else if (currentStep === 3) {
+      type = "dropoffTwo";
+    } else if (currentStep === 4) {
+      type = "package";
+    } else if (currentStep === 5) {
+      type = "payment";
+    } else {
+      console.warn("Invalid step for location selection");
       return;
     }
 
-    if (currentStep === 2) {
+    // Address and Building Validation for Pickup, Dropoff, and DropoffTwo
+    if (currentStep <= 3) {
+      if (!formData[type]?.address?.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: `Please select a valid address for ${type}.`,
+        });
+        return;
+      }
+
+      if (
+        (type === "dropoff" || type === "dropoffTwo") &&
+        !formData[type]?.building?.trim()
+      ) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: `Please enter a valid building number for ${type}.`,
+        });
+        return;
+      }
+    }
+
+    // Receiver Number and COD Amount Validation for Dropoff and DropoffTwo
+    if (type === "dropoff" || type === "dropoffTwo") {
+      if (!formData[type]?.receiver_phone_number?.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: `Please enter a valid receiver number for ${type}.`,
+        });
+        return;
+      }
+
+      if (
+        !formData[type]?.cod_amount ||
+        isNaN(Number(formData[type]?.cod_amount))
+      ) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: `Please enter a valid COD amount for ${type}.`,
+        });
+        return;
+      }
+    }
+
+    if (currentStep === 3) {
       setLoadingPackageScreen(true);
       try {
         await fetchVehicles(); // Perform async operation
       } catch (error) {}
     }
-    // manage validation for package screen
-    if (currentStep === 3) {
-      // Check receiver number is empty or not
+
+    if ((currentStep as 1 | 2 | 3 | 4 | 5) === 4) {
       if (!selectedVehicle) {
         toast({
           variant: "destructive",
@@ -298,16 +413,14 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
         });
         return;
       }
-      // Check receiver number is empty or not
-      if (!formData.package.receiver_phone_number.trim()) {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description: "Please enter a recipient number.",
-        });
-        return;
-      }
-      // Validate schedule time if selectedDate is provided
+      // if (!formData.package.receiver_phone_number.trim()) {
+      //   toast({
+      //     variant: "destructive",
+      //     title: "Submission failed",
+      //     description: "Please enter a recipient number.",
+      //   });
+      //   return;
+      // }
       if (selectedDate && !selectedTime) {
         toast({
           variant: "destructive",
@@ -328,8 +441,17 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
         return;
       }
     }
+    // Clear input field when moving to the next screen
+    setPasteLocationInput("");
     if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1);
+      setClearInputTrigger(true); // Trigger to clear input field
+
+      // Immediately reset the trigger to allow clearing in subsequent steps
+      setTimeout(() => {
+        setClearInputTrigger(false);
+      }, 0);
+
+      setCurrentStep((currentStep + 1) as 1 | 2 | 3 | 4 | 5); // Cast to match the type
     } else {
       if (!isInvoiceUser && !orderPaymentMethod) {
         toast({
@@ -341,19 +463,17 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
       }
       handleSubmit();
     }
-    // Proceed to the next step
-    // setCurrentStep((prev) => Math.min(prev + 1, 4));
   };
 
   const handleBack = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
+    setCurrentStep((prev) => Math.max(prev - 1, 1) as 1 | 2 | 3 | 4 | 5); // Cast the result
   };
 
   const fetchVehicles = async () => {
     setLoading(true);
     try {
       const response = await api.post("/pickup-delivery/get-vehicles", {
-        service_type_id: deliveryType === "cod" ? 4 : 1,
+        service_type_id: 5,
         locations: [
           {
             latitude: formData.pickup.location.lat,
@@ -362,6 +482,10 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
           {
             latitude: formData.dropoff.location.lat,
             longitude: formData.dropoff.location.lng,
+          },
+          {
+            latitude: formData.dropoffTwo.location.lat,
+            longitude: formData.dropoffTwo.location.lng,
           },
         ],
       });
@@ -385,7 +509,7 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
 
   const handleVehicleSelect = (vehicle: VehicleProp) => {
     if (vehicle.is_available) {
-      const fee = parseFloat(vehicle.delivery_fee);
+      const fee = parseFloat(vehicle.order_cost);
       setSelectedVehicle(vehicle);
       setDeliveryFee(fee);
       const tip =
@@ -477,7 +601,7 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
   const prepareOrderPayload = (currentPaymentMethod: any) => ({
     source: "order_manager",
     business_customer: userId,
-    service_type_id: deliveryType === "cod" ? 4 : 1,
+    service_type_id: 5,
     payment_type: isInvoiceUser ? 2 : 1,
     vehicle_id: selectedVehicle?.id || null,
     isVendorOrder: false, // Is this an order from a vendor client?
@@ -493,7 +617,8 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
     distance: distance || 0,
     duration: duration || 0,
     payment_method: orderPaymentMethod,
-    paymentMethod: currentPaymentMethod,
+    paymentMethod:
+      orderPaymentMethod === 5 ? paymentMethod : currentPaymentMethod,
     tasks: [
       {
         task_type_id: 1,
@@ -512,13 +637,30 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
         longitude: formData.dropoff.location.lng,
         flat_no: formData.dropoff.building,
         direction: formData.dropoff?.directions || "",
-        receiver_phone_number: formData.package?.receiver_phone_number || null,
+        receiver_phone_number: formData.dropoff?.receiver_phone_number,
         cod_amount: formData.package?.cod_amount || 0,
       },
+      ...(deliveryType === "bulk"
+        ? [
+            {
+              task_type_id: 3,
+              address: formData.dropoffTwo.address,
+              latitude: formData.dropoffTwo.location.lat,
+              longitude: formData.dropoffTwo.location.lng,
+              flat_no: formData.dropoffTwo.building,
+              direction: formData.dropoffTwo.directions || "",
+              receiver_phone_number:
+                formData.dropoffTwo?.receiver_phone_number || null,
+            },
+          ]
+        : []),
     ],
   });
 
   const submitOrder = async (payload: Record<string, any>) => {
+    // console.log(payload);
+
+    // return;
     const response = await api.post("/order-manager/processOrder", payload);
 
     if (response.status === 200) {
@@ -558,30 +700,32 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
     const isPlusCode = plusCodeRegex.test(pastedData);
     const isShortLink = shortLinkRegex.test(pastedData);
 
+    // Determine the current location type dynamically
+    const type: "pickup" | "dropoff" | "dropoffTwo" =
+      currentStep === 1
+        ? "pickup"
+        : currentStep === 2
+        ? "dropoff"
+        : "dropoffTwo";
+
     if (match) {
       const lat = parseFloat(match[1]);
       const lng = parseFloat(match[2]);
       const coordinates = { lat, lng };
-      await resolveLocationFromCoordinates(
-        coordinates,
-        currentStep === 1 ? "pickup" : "dropoff"
-      );
+
+      await resolveLocationFromCoordinates(coordinates, type);
     } else if (isPlusCode) {
-      await resolveLocationFromPlusCode(
-        pastedData,
-        currentStep === 1 ? "pickup" : "dropoff"
-      );
+      await resolveLocationFromPlusCode(pastedData, type);
     } else if (isShortLink) {
-      await resolveShortLink(
-        pastedData,
-        currentStep === 1 ? "pickup" : "dropoff"
-      );
+      await resolveShortLink(pastedData, type);
+    } else {
+      console.warn("[handlePasteLocation] Invalid link format pasted.");
     }
   };
 
   const resolveShortLink = async (
     shortLink: string,
-    type: "pickup" | "dropoff"
+    type: "pickup" | "dropoff" | "dropoffTwo" // Allow dropoffTwo
   ) => {
     try {
       const response = await fetch(shortLink, {
@@ -615,26 +759,38 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
 
   const resolveLocationFromCoordinates = async (
     coordinates: Location,
-    type: "pickup" | "dropoff"
+    type: "pickup" | "dropoff" | "dropoffTwo" // Allow dropoffTwo
   ) => {
     try {
       const geocoder = new window.google.maps.Geocoder();
       const result = await geocoder.geocode({ location: coordinates });
 
-      if (result.results?.[0]) {
+      if (result && result.results?.[0]) {
+        const address = result.results[0].formatted_address;
+
+        // Log address for debugging
+        console.log(
+          "[resolveLocationFromCoordinates] Geocoded Address:",
+          address
+        );
+
         setFormData((prev) => ({
           ...prev,
           [type]: {
             ...prev[type],
-            address: result.results[0].formatted_address,
+            address: address, // Ensure the address field updates
             location: coordinates,
           },
         }));
 
-        // Center map on location
+        // Ensure the map pans to the location after state update
         if (mapRef.current) {
           mapRef.current.panTo(coordinates);
         }
+      } else {
+        console.warn(
+          "[resolveLocationFromCoordinates] No valid address found."
+        );
       }
     } catch (error) {
       console.error("[resolveLocationFromCoordinates] Geocoding error:", error);
@@ -643,7 +799,7 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
 
   const resolveLocationFromPlusCode = async (
     plusCode: string,
-    type: "pickup" | "dropoff"
+    type: "pickup" | "dropoff" | "dropoffTwo" // Allow dropoffTwo
   ) => {
     try {
       const geocoder = new window.google.maps.Geocoder();
@@ -658,7 +814,7 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
           [type]: {
             ...prev[type],
             address: result.results[0].formatted_address,
-            coordinates,
+            location: coordinates,
           },
         }));
 
@@ -678,99 +834,78 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
 
   const renderStep = () => {
     switch (currentStep) {
+      // Pickup, Dropoff, Dropoff Two
       case 1:
-      case 2: {
-        const type = currentStep === 1 ? "pickup" : "dropoff";
+      case 2:
+      case 3: {
+        const type =
+          currentStep === 1
+            ? "pickup"
+            : currentStep === 2
+            ? "dropoff"
+            : deliveryType === "bulk" && currentStep === 3
+            ? "dropoffTwo"
+            : "dropoff";
 
         const onLoad = (mapInstance: google.maps.Map) => {
           mapRef.current = mapInstance;
         };
 
-        const handleMapIdle = async (type: "pickup" | "dropoff") => {
-          if (!mapIsMoving) return; // Prevent redundant calls when the map is not being moved
+        const handleMapIdle = async (
+          type: "pickup" | "dropoff" | "dropoffTwo"
+        ) => {
+          if (!mapIsMoving) return;
 
           if (mapRef.current) {
             const center = mapRef.current.getCenter();
-
             if (center) {
-              const newLocation = {
-                lat: center.lat(),
-                lng: center.lng(),
-              };
+              const newLocation = { lat: center.lat(), lng: center.lng() };
 
-              // Update location in form data
               setFormData((prev) => ({
                 ...prev,
-                [type]: {
-                  ...prev[type],
-                  location: newLocation,
-                },
+                [type]: { ...prev[type], location: newLocation },
               }));
 
-              // Fetch the address for the updated coordinates using Geocoder
               try {
                 const geocoder = new window.google.maps.Geocoder();
                 const result = await geocoder.geocode({
                   location: newLocation,
                 });
-
                 const address =
                   result.results?.[0]?.formatted_address || "Unknown Location";
-                console.log("Fetched address for new location:", address);
 
-                // Update the address in form data
                 setFormData((prev) => ({
                   ...prev,
-                  [type]: {
-                    ...prev[type],
-                    address,
-                  },
+                  [type]: { ...prev[type], address },
                 }));
               } catch (error) {
-                console.error("[handleMapIdle] Geocoding error:", error);
+                console.error("Geocoding error:", error);
               }
-            } else {
-              console.warn("Failed to get map center");
             }
           }
-          setMapIsMoving(false); // Reset moving state after idle
+          setMapIsMoving(false);
         };
 
         return (
           <div className="grid md:grid-cols-2 gap-6">
             <div className="space-y-4">
+              {/* Address Input */}
               <div className="space-y-2">
                 <Label htmlFor={`${type}-address`}>Address</Label>
                 <Input
-                  className="h-11"
                   readOnly
+                  className="h-11"
                   id={`${type}-address`}
                   placeholder="Select location"
                   value={formData[type].address}
                 />
               </div>
-              <div className="space-y-2 hidden">
-                <Label htmlFor={`${type}-latitude`}>Latitude</Label>
-                <Input
-                  readOnly
-                  id={`${type}-latitude`}
-                  placeholder="Latitude"
-                  value={formData[type].location.lat.toString()}
-                />
-              </div>
-              <div className="space-y-2 hidden">
-                <Label htmlFor={`${type}-longitude`}>Longitude</Label>
-                <Input
-                  readOnly
-                  id={`${type}-longitude`}
-                  placeholder="Longitude"
-                  value={formData[type].location.lng.toString()}
-                />
-              </div>
+
+              {/* Building Input */}
               <div className="space-y-2">
                 <Label htmlFor={`${type}-building`}>
-                  Flat / Building
-                  <span className="italic text-gray-500">(optional)</span>
+                  Flat / Building{" "}
+                  <span className="text-gray-500">(optional)</span>
                 </Label>
                 <Input
                   className="h-11"
@@ -785,15 +920,16 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                   }
                 />
               </div>
+
+              {/* Directions Input */}
               <div className="space-y-2">
                 <Label htmlFor={`${type}-directions`}>
-                  Directions
-                  <span className="italic text-gray-500">(optional)</span>
+                  Directions <span className="text-gray-500">(optional)</span>
                 </Label>
                 <Textarea
                   id={`${type}-directions`}
                   placeholder="Enter directions"
-                  value={formData[type]?.directions || ""} // Ensures fallback to an empty string
+                  value={formData[type].directions || ""}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
@@ -802,7 +938,54 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                   }
                 />
               </div>
-              <hr />
+              {/*  Receiver Number && Cod Amount */}
+              {(type === "dropoff" || type === "dropoffTwo") && (
+                <div className="flex gap-2 mt-4">
+                  {/* Receiver Number Input */}
+                  <div className="space-y-2 w-1/2">
+                    <Label htmlFor={`${type}-receiver_phone_number`}>
+                      Receiver Number
+                    </Label>
+                    <Input
+                      className="h-11"
+                      id={`${type}-receiver_phone_number`}
+                      placeholder="Enter receiver number"
+                      value={formData[type]?.receiver_phone_number || ""} // Ensure safety with optional chaining
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          [type]: {
+                            ...prev[type],
+                            receiver_phone_number: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+
+                  {/* COD Amount Input */}
+                  <div className="space-y-2 w-1/2">
+                    <Label htmlFor={`${type}-cod_amount`}>COD Amount</Label>
+                    <Input
+                      className="h-11"
+                      id={`${type}-cod_amount`}
+                      placeholder="Enter cod amount"
+                      value={formData[type]?.cod_amount || ""} // Ensure safety with optional chaining
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          [type]: {
+                            ...prev[type],
+                            cod_amount: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Additional Options */}
               <div className="space-y-2">
                 <div className="py-2">
                   <p className="text-gray-500 text-sm">
@@ -819,7 +1002,6 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                     </span>
                   </p>
                 </div>
-
                 <Button
                   className="bg-gray-100 text-black shadow-none border"
                   onClick={() => {
@@ -831,17 +1013,16 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                             lng: position.coords.longitude,
                           };
                           if (mapRef.current) {
-                            shouldGeocode.current = true; // Enable geocoding for user interaction
+                            shouldGeocode.current = true;
                             mapRef.current.panTo(coordinates);
                             await resolveLocationFromCoordinates(
                               coordinates,
-                              currentStep === 1 ? "pickup" : "dropoff"
+                              type
                             );
                           }
                         },
-                        (error) => {
-                          console.error("Error getting location:", error);
-                        }
+                        (error) =>
+                          console.error("Error getting location:", error)
                       );
                     }
                   }}
@@ -861,25 +1042,35 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                     type="text"
                     placeholder="Enter or paste Google Maps link, Plus Code, or short link"
                     className="h-11"
-                    onPaste={handlePasteLocation} // Handle paste action
+                    value={pasteLocationInput} // Bind the value to state
+                    onChange={(e) => setPasteLocationInput(e.target.value)} // Update state on input change
+                    onPaste={handlePasteLocation}
                   />
                 </div>
               </div>
             </div>
+
+            {/* Google Map */}
             <div className="h-[550px] rounded-lg overflow-hidden relative">
               {isLoaded ? (
                 <GoogleMap
                   zoom={15}
                   center={formData[type].location}
                   mapContainerClassName="w-full h-full"
-                  onLoad={onLoad} // Set mapRef
-                  onDragStart={() => setMapIsMoving(true)} // Set moving state when dragging starts
+                  onLoad={onLoad}
+                  onDragStart={() => setMapIsMoving(true)}
                   onIdle={() => handleMapIdle(type)}
                 >
-                  {/* Remove the Marker component */}
+                  {/* Fixed Marker */}
+                  <div
+                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-full z-10"
+                    style={{ pointerEvents: "none" }}
+                  >
+                    <img src="/marker-icon.png" alt="Marker" />
+                  </div>
                 </GoogleMap>
               ) : (
-                <div className="w-full h-full bg-muted flex items-center justify-center">
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                   Loading map...
                 </div>
               )}
@@ -887,24 +1078,19 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                 <Autocomplete
                   isLoaded={isLoaded}
                   onLocationSelect={handleLocationSelectNew}
+                  clearInputTrigger={clearInputTrigger}
                 />
-              </div>
-
-              {/* Fixed Center Marker */}
-              <div
-                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-full z-10"
-                style={{ pointerEvents: "none" }}
-              >
-                <img src="/marker-icon.png" alt="Marker" />
               </div>
             </div>
           </div>
         );
       }
-      case 3:
+
+      // Package Step
+      case 4:
         return (
           <>
-            <Loader isVisible={loadingPackageScreen} />
+            {/* <Loader isVisible={loadingPackageScreen} /> */}
 
             <div className="grid md:grid-cols-2 gap-6">
               <div>
@@ -952,7 +1138,7 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                                 {vehicle.package_name}
                               </p>
                               <p className="text-sm font-medium">
-                                {vehicle.delivery_fee} AED
+                                {vehicle.order_cost} AED
                               </p>
                             </div>
                           </button>
@@ -960,26 +1146,7 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                       </div>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="receiver_phone_number">
-                      Receiver Number
-                    </Label>
-                    <Input
-                      className="h-11"
-                      id="receiver_phone_number"
-                      placeholder="Required format 05XXXXXXXX"
-                      value={formData.package.receiver_phone_number || ""}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          package: {
-                            ...prev.package,
-                            receiver_phone_number: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
+
                   <div className="space-y-2">
                     <Label>Tip</Label>
                     <div className="flex gap-4">
@@ -1150,6 +1317,11 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                     isLoaded={isLoaded}
                     pickup={formData.pickup.location}
                     dropoff={formData.dropoff.location}
+                    dropoffTwo={
+                      formData.dropoffTwo?.address?.trim() // Check if dropoffTwo has a valid address
+                        ? formData.dropoffTwo.location
+                        : null
+                    }
                   />
                 ) : (
                   <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center rounded-lg">
@@ -1160,13 +1332,51 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
             </div>
           </>
         );
-      case 4:
+
+      // Payment Step
+      case 5:
         return (
           <div className="w-1/2 space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 lg:justify-between">
+              {/* Render Saved Cards */}
+              {savedCards.length > 0 && (
+                <>
+                  {savedCards.map((card) => (
+                    <button
+                      key={card.id}
+                      onClick={() => {
+                        console.log(
+                          "Selected Payment Method ID:",
+                          card.payment_method_id
+                        );
+                        setPaymentMethod(card.payment_method_id); // Set saved card
+                        setOrderPaymentMethod(5); // Set order payment method to 5
+                      }}
+                      className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
+                        orderPaymentMethod === 5 &&
+                        paymentMethod === card.payment_method_id
+                          ? "bg-primary text-black"
+                          : "bg-slate-50 hover:bg-primary hover:text-black"
+                      }`}
+                    >
+                      <IconCreditCardPay />
+                      <div>
+                        <p className="font-medium">
+                          **** **** **** {card.card_last_four_digit}
+                        </p>
+                        <p className="text-sm text-gray-500">{card.brand}</p>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
+
               {/* Pay with Balance Button */}
               <button
-                onClick={handlePayWithBalance}
+                onClick={() => {
+                  setOrderPaymentMethod(4); // Set orderPaymentMethod to 4 for Balance
+                  setPaymentMethod(null); // Clear saved card selection
+                }}
                 className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
                   orderPaymentMethod === 4
                     ? "bg-primary text-black"
@@ -1179,9 +1389,12 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                 </div>
               </button>
 
-              {/* Pay with Credit Cards Button */}
+              {/* Add Card Button */}
               <button
-                onClick={handlePayWithCreditCard}
+                onClick={() => {
+                  setOrderPaymentMethod(3); // Set orderPaymentMethod to 3 for Add Card
+                  setPaymentMethod(null); // Clear saved card selection
+                }}
                 className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
                   orderPaymentMethod === 3
                     ? "bg-primary text-black"
@@ -1194,7 +1407,8 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
                 </div>
               </button>
             </div>
-            {/* Conditionally render card-payment div */}
+
+            {/* Conditionally render Stripe Wrapper */}
             {orderPaymentMethod === 3 && (
               <div className="card-payment">
                 <StripeWrapperForOrder
@@ -1262,7 +1476,7 @@ export default function OrderFormBulk({ deliveryType }: { deliveryType: string }
           onClick={handleNext}
           disabled={isAccountLocked}
         >
-          {currentStep === 4
+          {currentStep === 5
             ? `Place Order AED ${calculateTotal()}`
             : currentStep === steps.length
             ? "Place Order"

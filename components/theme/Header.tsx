@@ -99,16 +99,16 @@ export function Header({ setSidebarOpen }: HeaderProps) {
                       Deliver a COD Order
                     </Link>
                   </div>
-                  {/* <div>
+                  <div>
                     <Link
                       href="/place-order/bulk"
                       className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
                       onClick={handleLinkClick}
                     >
-                      <img src="/cod.png" alt="COD" className="h-20" />
+                      <img src="/bulk.png" alt="COD" className="h-20" />
                       Bulk Order
                     </Link>
-                  </div> */}
+                  </div>
                 </div>
               </DialogDescription>
             </DialogHeader>

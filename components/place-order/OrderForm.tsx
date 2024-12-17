@@ -110,6 +110,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   const [location, setLocation] = useState(null);
   const [status, setStatus] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [clearInputTrigger, setClearInputTrigger] = useState(false);
   const [isAccountLocked, setIsAccountLocked] = useState(false);
   const [isInvoiceUser, setIsInvoiceUser] = useState(false);
   const [invoiceReminder, setInvoiceReminder] =
@@ -338,6 +339,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       }
     }
     if (currentStep < steps.length) {
+      setClearInputTrigger(true); // Trigger to clear input field
       setCurrentStep(currentStep + 1);
     } else {
       if (!isInvoiceUser && !orderPaymentMethod) {
@@ -896,6 +898,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
                 <Autocomplete
                   isLoaded={isLoaded}
                   onLocationSelect={handleLocationSelectNew}
+                  clearInputTrigger={clearInputTrigger}
                 />
               </div>
 

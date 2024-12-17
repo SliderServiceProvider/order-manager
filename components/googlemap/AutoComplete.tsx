@@ -28,16 +28,28 @@ interface CustomPlaceAutocompleteResult {
 interface AutocompleteProps {
   onLocationSelect: (location: Location | null) => void;
   isLoaded: boolean;
+  clearInputTrigger: boolean;
 }
 
 export default function Autocomplete({
   onLocationSelect,
   isLoaded,
+  clearInputTrigger,
 }: AutocompleteProps) {
-  const [predictions, setPredictions] = useState<CustomPlaceAutocompleteResult[]>([]);
+  const [predictions, setPredictions] = useState<
+    CustomPlaceAutocompleteResult[]
+  >([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSelected, setIsSelected] = useState(false);
+
+  useEffect(() => {
+    if (clearInputTrigger) {
+      setInput(""); // Clear input when trigger changes
+      setPredictions([]);
+      setIsSelected(false);
+    }
+  }, [clearInputTrigger]);
 
   const fetchPredictions = async (input: string) => {
     if (!input.trim() || !isLoaded || !window.google?.maps?.places) return [];
@@ -49,20 +61,20 @@ export default function Autocomplete({
         componentRestrictions: { country: "AE" },
       };
 
-      const predictions = await new Promise<google.maps.places.AutocompletePrediction[]>(
-        (resolve, reject) => {
-          service.getPlacePredictions(request, (results, status) => {
-            if (
-              status === window.google.maps.places.PlacesServiceStatus.OK &&
-              results
-            ) {
-              resolve(results);
-            } else {
-              reject(new Error(status));
-            }
-          });
-        }
-      );
+      const predictions = await new Promise<
+        google.maps.places.AutocompletePrediction[]
+      >((resolve, reject) => {
+        service.getPlacePredictions(request, (results, status) => {
+          if (
+            status === window.google.maps.places.PlacesServiceStatus.OK &&
+            results
+          ) {
+            resolve(results);
+          } else {
+            reject(new Error(status));
+          }
+        });
+      });
 
       return predictions.map((prediction) => ({
         description: prediction.description,
