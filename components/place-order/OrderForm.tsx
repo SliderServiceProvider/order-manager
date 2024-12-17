@@ -111,6 +111,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   const [status, setStatus] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [clearInputTrigger, setClearInputTrigger] = useState(false);
+  const [pasteLocationInput, setPasteLocationInput] = useState("");
   const [isAccountLocked, setIsAccountLocked] = useState(false);
   const [isInvoiceUser, setIsInvoiceUser] = useState(false);
   const [invoiceReminder, setInvoiceReminder] =
@@ -338,6 +339,8 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         return;
       }
     }
+    // Clear input field when moving to the next screen
+    setPasteLocationInput("");
     if (currentStep < steps.length) {
       setClearInputTrigger(true); // Trigger to clear input field
       setCurrentStep(currentStep + 1);
@@ -848,6 +851,10 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
                               coordinates,
                               currentStep === 1 ? "pickup" : "dropoff"
                             );
+                            // Clear both the Autocomplete input and paste input
+                            setPasteLocationInput("");
+                            setClearInputTrigger(true); // Trigger Autocomplete to clear
+                            setTimeout(() => setClearInputTrigger(false), 0); // Reset trigger
                           }
                         },
                         (error) => {
@@ -872,7 +879,9 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
                     type="text"
                     placeholder="Enter or paste Google Maps link, Plus Code, or short link"
                     className="h-11"
-                    onPaste={handlePasteLocation} // Handle paste action
+                    value={pasteLocationInput} // Bind the value to state
+                    onChange={(e) => setPasteLocationInput(e.target.value)} // Update state on input change
+                    onPaste={handlePasteLocation}
                   />
                 </div>
               </div>

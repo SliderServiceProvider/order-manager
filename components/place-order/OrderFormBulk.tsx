@@ -1019,6 +1019,10 @@ export default function OrderFormBulk({
                               coordinates,
                               type
                             );
+                            // Clear both the Autocomplete input and paste input
+                            setPasteLocationInput("");
+                            setClearInputTrigger(true); // Trigger Autocomplete to clear
+                            setTimeout(() => setClearInputTrigger(false), 0); // Reset trigger
                           }
                         },
                         (error) =>
