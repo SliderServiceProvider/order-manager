@@ -343,6 +343,10 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     setPasteLocationInput("");
     if (currentStep < steps.length) {
       setClearInputTrigger(true); // Trigger to clear input field
+      // Immediately reset the trigger to allow clearing in subsequent steps
+      setTimeout(() => {
+        setClearInputTrigger(false);
+      }, 0);
       setCurrentStep(currentStep + 1);
     } else {
       if (!isInvoiceUser && !orderPaymentMethod) {
