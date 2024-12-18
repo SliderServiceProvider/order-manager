@@ -468,8 +468,9 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         if (orderPaymentMethod === 3) {
           // Stripe Payment Validation Only for orderPaymentMethod === 3
           if (!stripe) {
-            setResponseMessage("Something went wrong!");
-            // alert("Stripe has not been initialized. Please try again later.");
+           console.warn(
+             "Stripe has not been initialized. Please try again later."
+           );
             return;
           }
 
@@ -571,7 +572,6 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         router.push(`/orders/order-details/${orderNumber}`);
       }, 2000);
     } else {
-      console.error("Error placing order:", response.data);
       setIsModalOpen(false);
       setResponseMessage("Failed to place the order. Please try again.");
       setOrderStatus("error");

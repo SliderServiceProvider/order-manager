@@ -198,6 +198,7 @@ export default function OrderFormBulk({
   >("loading");
   const [orderNumber, setOrderNumber] = useState("");
   const [open, setOpen] = useState(false);
+  const [responseMessage, setResponseMessage] = useState<string | null>(null);
 
   // Mock getCurrentLocation function (replace with your actual implementation)
   const getCurrentLocation = useCallback(
@@ -572,7 +573,10 @@ export default function OrderFormBulk({
         if (orderPaymentMethod === 3) {
           // Stripe Payment Validation Only for orderPaymentMethod === 3
           if (!stripe) {
-            alert("Stripe has not been initialized. Please try again later.");
+            console.warn(
+              "Stripe has not been initialized. Please try again later."
+            );
+            
             return;
           }
 
@@ -580,7 +584,9 @@ export default function OrderFormBulk({
             (await stripeFormRef.current?.validatePayment()) || {};
 
           if (!isValid) {
-            alert("Payment validation failed. Please check your card details.");
+            setResponseMessage(
+              "Payment validation failed. Please check your card details."
+            );
             setOrderStatus("error");
             return;
           }
@@ -599,8 +605,15 @@ export default function OrderFormBulk({
         await submitOrder(payload);
       }
     } catch (error: any) {
-      console.error("Error submitting the order:", error);
-      alert(error.message || "An unexpected error occurred. Please try again.");
+      setResponseMessage(
+        error.response.data.message ||
+          "An unexpected error occurred. Please try again."
+      );
+      setOrderStatus("error");
+      // Wait for 3 seconds before processing the result
+      setTimeout(() => {
+        setIsModalOpen(false);
+      }, 3000);
     }
   };
 
@@ -672,6 +685,7 @@ export default function OrderFormBulk({
     if (response.status === 200) {
       const orderNumber = response.data.data;
       setOrderNumber(orderNumber);
+      setResponseMessage(response.data.message || "Order Placed Successfully!");
       setOrderStatus("success");
 
       // Wait for 2 seconds before processing the result
@@ -680,15 +694,11 @@ export default function OrderFormBulk({
         router.push(`/orders/order-details/${orderNumber}`);
       }, 2000);
     } else {
-      console.error("Error placing order:", response.data);
       setIsModalOpen(false);
-      alert("Failed to place the order. Please try again.");
+      setResponseMessage("Failed to place the order. Please try again.");
+      setOrderStatus("error");
     }
-    // if (response.status === 200) {
-    //   alert("Order placed successfully!");
-    // } else {
-    //   alert("Failed to place the order. Please try again.");
-    // }
+   
   };
 
   // Paste Map Link
@@ -1496,6 +1506,7 @@ export default function OrderFormBulk({
         onClose={() => setIsModalOpen(false)}
         status={orderStatus}
         orderNumber={orderNumber}
+        responseMessage={responseMessage}
       />
       {/* Invoice Reminder Modal */}
       <WarningModal
