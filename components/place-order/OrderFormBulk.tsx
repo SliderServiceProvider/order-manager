@@ -1455,13 +1455,11 @@ export default function OrderFormBulk({
               </div>
               <span className="ml-2 font-medium">{step.name}</span>
             </div>
-            {step.id < steps.length && (
-              <div
-                className={`h-1 w-20 mx-2 ${
-                  currentStep > step.id ? "bg-primary" : "bg-muted"
-                }`}
-              />
-            )}
+            <div
+              className={`h-1 w-20 mx-2 ${
+                currentStep === step.id ? "bg-primary" : "bg-muted"
+              }`}
+            />
           </div>
         ))}
       </div>

@@ -248,7 +248,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   const baseSteps = [
     { id: 1, name: "Pickup Address", icon: MapPin },
     { id: 2, name: "Drop Off Address", icon: MapPin },
-    { id: 3, name: "Package", icon: Package },
+    { id: 3, name: "Package Details", icon: Package },
   ];
 
   const steps = isInvoiceUser
@@ -1302,13 +1302,11 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
               </div>
               <span className="ml-2 font-medium">{step.name}</span>
             </div>
-            {step.id < steps.length && (
-              <div
-                className={`h-1 w-20 mx-2 ${
-                  currentStep > step.id ? "bg-primary" : "bg-muted"
-                }`}
-              />
-            )}
+            <div
+              className={`h-1 w-20 mx-2 ${
+                currentStep === step.id ? "bg-primary" : "bg-muted"
+              }`}
+            />
           </div>
         ))}
       </div>

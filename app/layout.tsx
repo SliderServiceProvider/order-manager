@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: "Order Manager | Slider APP",
+  title: "Order Manager | Slider Enterprise Dashboard",
   description: "Enterprise dashboard for order manager",
 };
 

@@ -15,6 +15,7 @@ export interface User {
   email: string;
   auth_token: string;
   isInvoiceUser: boolean;
+  isShowInvoices: boolean;
 }
 
 // Hook for auth state

@@ -16,10 +16,10 @@ interface InvoiceProps {
 }
 
 const Page: React.FC<PageProps> = ({ params }) => {
-   const isInvoiceUser = useAppSelector(
-      (state) => state.auth.user?.isInvoiceUser
-    ); // Access isInvoiceUser from Redux state
-    const router = useRouter();
+  const isShowInvoices = useAppSelector(
+    (state) => state.auth.user?.isShowInvoices
+  ); // Access isShowInvoices from Redux state
+  const router = useRouter();
   const unwrappedParams = use(params);
   const { invoice_number } = unwrappedParams;
   const [isShowOrderRefNo, setIsShowOrderRefNo] = useState(false);
@@ -43,10 +43,10 @@ const Page: React.FC<PageProps> = ({ params }) => {
   };
 
   useEffect(() => {
-      if (!isInvoiceUser) {
-        router.push("/dashboard");
-      }
-    }, [isInvoiceUser, router]);
+    if (!isShowInvoices) {
+      router.push("/dashboard");
+    }
+  }, [isShowInvoices, router]);
 
   // Fetch the invoice on mount
   useEffect(() => {

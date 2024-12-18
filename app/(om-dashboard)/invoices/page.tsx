@@ -16,8 +16,8 @@ import api from "@/services/api";
 import { useAppSelector } from "@/hooks/useAuth";
 import { log } from "node:console";
 export default function page() {
-  const isInvoiceUser = useAppSelector(
-    (state) => state.auth.user?.isInvoiceUser
+  const isShowInvoices = useAppSelector(
+    (state) => state.auth.user?.isShowInvoices
   ); // Access isInvoiceUser from Redux state
   const router = useRouter();
 
@@ -51,10 +51,10 @@ export default function page() {
   }, []);
 
   useEffect(() => {
-    if (!isInvoiceUser) {
+    if (!isShowInvoices) {
       router.push("/dashboard");
     }
-  }, [isInvoiceUser, router]);
+  }, [isShowInvoices, router]);
 
   const amountInSubunits = Math.round(invoiceAmount * 100);
 

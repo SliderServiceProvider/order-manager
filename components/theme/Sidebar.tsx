@@ -106,8 +106,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
-  const isInvoiceUser = useAppSelector(
-    (state) => state.auth.user?.isInvoiceUser
+  const isShowInvoices = useAppSelector(
+    (state) => state.auth.user?.isShowInvoices
   ); // Access isInvoiceUser from Redux state
 
   const pathname = usePathname();
@@ -118,9 +118,9 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
   const filteredNavigation = React.useMemo(
     () =>
       navigation.filter(
-        (item) => !(item.title === "Invoice List" && !isInvoiceUser)
+        (item) => !(item.title === "Invoice List" && !isShowInvoices)
       ),
-    [isInvoiceUser]
+    [isShowInvoices]
   );
 
   // Handle logout by dispatching the logout action and redirecting to the login page
