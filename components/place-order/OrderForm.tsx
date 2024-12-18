@@ -177,6 +177,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   >("loading");
   const [orderNumber, setOrderNumber] = useState("");
   const [open, setOpen] = useState(false);
+  const [responseMessage, setResponseMessage] = useState<string | null>(null);
 
   // Fetch Primary Address to show as pickup location
   const fetchPrimaryAddress = async () => {
@@ -467,7 +468,8 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         if (orderPaymentMethod === 3) {
           // Stripe Payment Validation Only for orderPaymentMethod === 3
           if (!stripe) {
-            alert("Stripe has not been initialized. Please try again later.");
+            setResponseMessage("Something went wrong!");
+            // alert("Stripe has not been initialized. Please try again later.");
             return;
           }
 
@@ -475,7 +477,9 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
             (await stripeFormRef.current?.validatePayment()) || {};
 
           if (!isValid) {
-            alert("Payment validation failed. Please check your card details.");
+            setResponseMessage(
+              "Payment validation failed. Please check your card details."
+            );
             setOrderStatus("error");
             return;
           }
@@ -494,8 +498,15 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         await submitOrder(payload);
       }
     } catch (error: any) {
-      console.error("Error submitting the order:", error);
-      alert(error.message || "An unexpected error occurred. Please try again.");
+      setResponseMessage(
+        error.response.data.message ||
+          "An unexpected error occurred. Please try again."
+      );
+      setOrderStatus("error");
+      // Wait for 3 seconds before processing the result
+      setTimeout(() => {
+        setIsModalOpen(false);
+      }, 3000);
     }
   };
 
@@ -551,6 +562,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     if (response.status === 200) {
       const orderNumber = response.data.data;
       setOrderNumber(orderNumber);
+      setResponseMessage(response.data.message || "Order Placed Successfully!");
       setOrderStatus("success");
 
       // Wait for 2 seconds before processing the result
@@ -560,7 +572,8 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       }, 2000);
     } else {
       console.error("Error placing order:", response.data);
-      // setIsModalOpen(false);
+      setIsModalOpen(false);
+      setResponseMessage("Failed to place the order. Please try again.");
       setOrderStatus("error");
       // alert("Failed to place the order. Please try again.");
     }
@@ -1343,6 +1356,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         onClose={() => setIsModalOpen(false)}
         status={orderStatus}
         orderNumber={orderNumber}
+        responseMessage={responseMessage}
       />
       {/* Invoice Reminder Modal */}
       <WarningModal

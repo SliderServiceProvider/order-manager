@@ -10,12 +10,14 @@ interface OrderStatusModalProps {
   onClose: () => void;
   status: "loading" | "success" | "error";
   orderNumber: string;
+  responseMessage: string | null;
 }
 
 export function OrderStatusModal({
   isOpen,
   onClose,
   status,
+  responseMessage,
   orderNumber,
 }: OrderStatusModalProps) {
   const [open, setOpen] = useState(isOpen);
@@ -56,9 +58,7 @@ export function OrderStatusModal({
           {status === "success" && (
             <>
               <CheckCircle className="h-10 w-10 text-green-500" />
-              <h2 className="mt-4 text-lg font-semibold">
-                Order placed successfully!
-              </h2>
+              <h2 className="mt-4 text-lg font-semibold">{responseMessage}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 Your order number is: {orderNumber}
               </p>
@@ -69,10 +69,11 @@ export function OrderStatusModal({
             <>
               <XCircle className="h-10 w-10 text-red-500" />
               <h2 className="mt-4 text-lg font-semibold text-red-600">
-                Something went wrong!
+                Error placing order
+                {/* Something went wrong! */}
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                We couldn't process your order. Please try again later.
+                {responseMessage}
               </p>
             </>
           )}
