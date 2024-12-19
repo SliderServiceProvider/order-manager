@@ -336,7 +336,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       }
       if (
         deliveryType === "cod" &&
-        (!formData.package.cod_amount || formData.package.cod_amount === 0)
+        (!formData.package.cod_amount)
       ) {
         toast({
           variant: "destructive",
@@ -551,7 +551,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         flat_no: formData.dropoff.building,
         direction: formData.dropoff?.directions || "",
         receiver_phone_number: formData.package?.receiver_phone_number || null,
-        cod_amount: formData.package?.cod_amount || 0,
+        cod_amount: formData.package?.cod_amount,
       },
     ],
   });

@@ -657,7 +657,7 @@ export default function OrderFormBulk({
         flat_no: formData.dropoff.building,
         direction: formData.dropoff?.directions || "",
         receiver_phone_number: formData.dropoff?.receiver_phone_number,
-        cod_amount: formData.package?.cod_amount || 0,
+        cod_amount: formData.dropoff?.cod_amount || 0,
       },
       ...(deliveryType === "bulk"
         ? [
@@ -670,6 +670,7 @@ export default function OrderFormBulk({
               direction: formData.dropoffTwo.directions || "",
               receiver_phone_number:
                 formData.dropoffTwo?.receiver_phone_number || null,
+              cod_amount: formData.dropoffTwo?.cod_amount || 0,
             },
           ]
         : []),
