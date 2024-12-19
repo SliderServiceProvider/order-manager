@@ -61,7 +61,7 @@ type PackageData = {
   receiver_phone_number: string;
   tip: number;
   order_reference_number: string;
-  cod_amount: number;
+  cod_amount: number | null;
 };
 
 type FormData = {
@@ -167,7 +167,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       receiver_phone_number: "",
       tip: 0,
       order_reference_number: "",
-      cod_amount: 0,
+      cod_amount: null,
     },
   });
 
@@ -334,10 +334,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         });
         return;
       }
-      if (
-        deliveryType === "cod" &&
-        (!formData.package.cod_amount)
-      ) {
+      if (deliveryType === "cod" && !formData.package.cod_amount) {
         toast({
           variant: "destructive",
           title: "Submission failed",
@@ -461,16 +458,15 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
 
   const handleSubmit = async () => {
     try {
-      
       setIsModalOpen(true);
       setOrderStatus("loading");
       if (!isInvoiceUser) {
         if (orderPaymentMethod === 3) {
           // Stripe Payment Validation Only for orderPaymentMethod === 3
           if (!stripe) {
-           console.warn(
-             "Stripe has not been initialized. Please try again later."
-           );
+            console.warn(
+              "Stripe has not been initialized. Please try again later."
+            );
             return;
           }
 
@@ -551,13 +547,12 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         flat_no: formData.dropoff.building,
         direction: formData.dropoff?.directions || "",
         receiver_phone_number: formData.package?.receiver_phone_number || null,
-        cod_amount: formData.package?.cod_amount,
+        cod_amount: formData.package?.cod_amount || null,
       },
     ],
   });
 
   const submitOrder = async (payload: Record<string, any>) => {
-
     const response = await api.post("/order-manager/processOrder", payload);
 
     if (response.status === 200) {
@@ -577,7 +572,6 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       setOrderStatus("error");
       // alert("Failed to place the order. Please try again.");
     }
-    
   };
 
   // Paste Map Link
@@ -1118,14 +1112,15 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
                         className="h-11"
                         id="cod_amount"
                         placeholder="Enter cod amount"
-                        value={formData.package.cod_amount.toString() || ""}
+                        value={formData.package.cod_amount?.toString() || ""}
                         onChange={(e) => {
                           const value = e.target.value; // Get the raw value
                           setFormData((prev) => ({
                             ...prev,
                             package: {
                               ...prev.package,
-                              cod_amount: value === "" ? 0 : parseFloat(value),
+                              cod_amount:
+                                value === "" ? null : parseFloat(value),
                             },
                           }));
                         }}

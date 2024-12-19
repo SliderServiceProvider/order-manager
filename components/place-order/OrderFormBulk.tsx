@@ -237,7 +237,6 @@ export default function OrderFormBulk({
         setOpen(true);
       }
 
-
       if (data?.address) {
         // Update the form data with the primary address
         setFormData((prev) => ({
@@ -270,13 +269,13 @@ export default function OrderFormBulk({
     fetchPrimaryAddress();
   }, [fetchPrimaryAddress]);
 
- useEffect(() => {
-   if (isAccountLocked) {
-     setOpen(true); // Open modal if account is locked
-   } else if (invoiceReminder) {
-     setOpen(true); // Open modal if there's an invoice reminder
-   }
- }, [isAccountLocked, invoiceReminder]);
+  useEffect(() => {
+    if (isAccountLocked) {
+      setOpen(true); // Open modal if account is locked
+    } else if (invoiceReminder) {
+      setOpen(true); // Open modal if there's an invoice reminder
+    }
+  }, [isAccountLocked, invoiceReminder]);
 
   const googleMapAPIKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   // Define libraries array outside component to prevent unnecessary re-renders
@@ -576,7 +575,7 @@ export default function OrderFormBulk({
             console.warn(
               "Stripe has not been initialized. Please try again later."
             );
-            
+
             return;
           }
 
@@ -699,7 +698,6 @@ export default function OrderFormBulk({
       setResponseMessage("Failed to place the order. Please try again.");
       setOrderStatus("error");
     }
-   
   };
 
   // Paste Map Link

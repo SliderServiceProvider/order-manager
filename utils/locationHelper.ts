@@ -17,7 +17,7 @@ type PackageData = {
   receiver_phone_number: string;
   tip: number;
   order_reference_number: string;
-  cod_amount: number;
+  cod_amount: number | null;
 };
 
 type FormData = {
