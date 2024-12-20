@@ -390,6 +390,8 @@ export default function OrderFormBulk({
         return;
       }
 
+      const MAX_COD_AMOUNT = 500;
+
       if (
         !formData[type]?.cod_amount ||
         isNaN(Number(formData[type]?.cod_amount))
@@ -397,7 +399,15 @@ export default function OrderFormBulk({
         toast({
           variant: "destructive",
           title: "Submission failed",
-          description: `Please enter a valid COD amount for ${type}.`,
+          description: `The valid COD amount is required for ${type}.`,
+        });
+        return;
+      }
+      if ((formData[type]?.cod_amount ?? 0) > MAX_COD_AMOUNT) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: `The COD amount cannot exceed AED ${MAX_COD_AMOUNT}, Please enter a valid amount.`,
         });
         return;
       }
@@ -435,17 +445,18 @@ export default function OrderFormBulk({
         });
         return;
       }
-      if (
-        deliveryType === "cod" &&
-        (!formData.package.cod_amount || formData.package.cod_amount === 0)
-      ) {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description: "Please enter a valid COD amount.",
-        });
-        return;
-      }
+      // if (
+      //   deliveryType === "cod" &&
+      //   (!formData.package.cod_amount || formData.package.cod_amount === 0)
+      // ) {
+      //   toast({
+      //     variant: "destructive",
+      //     title: "Submission failed",
+      //     description: "Please enter a valid COD amount.",
+      //   });
+      //   return;
+      // }
+      
     }
     // Clear input field when moving to the next screen
     setPasteLocationInput("");

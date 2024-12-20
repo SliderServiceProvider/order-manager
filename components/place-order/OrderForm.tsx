@@ -334,11 +334,22 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         });
         return;
       }
+
+      const MAX_COD_AMOUNT = 500;
+
       if (deliveryType === "cod" && !formData.package.cod_amount) {
         toast({
           variant: "destructive",
           title: "Submission failed",
-          description: "Please enter a valid COD amount.",
+          description: "The valid COD amount is required.",
+        });
+        return;
+      }
+      if (deliveryType === "cod" && (formData.package?.cod_amount ?? 0) > 500) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: `The COD amount cannot exceed AED ${MAX_COD_AMOUNT}, Please enter a valid amount.`,
         });
         return;
       }
