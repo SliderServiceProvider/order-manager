@@ -12,6 +12,7 @@ import {
   X,
   MapPinHouse,
   ChartNoAxesCombined,
+  MessageSquareWarning,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import {
   IconBuilding,
   IconGps,
+  IconHelpCircle,
   IconInbox,
   IconMessage,
   IconPackage,
@@ -93,11 +95,6 @@ const navigation: NavItem[] = [
     href: "/chat",
     icon: IconMessage,
   },
-  // {
-  //   title: "Account Settings",
-  //   href: "/account-settings",
-  //   icon: IconUserCog,
-  // },
 ];
 
 interface SidebarProps {
@@ -114,6 +111,7 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
   const dispatch = useAppDispatch();
   const router = useRouter();
 
+  const isActiveSc = pathname.startsWith("/support-center"); // Updated logic
   // Filter navigation items based on isInvoiceUser
   const filteredNavigation = React.useMemo(
     () =>
@@ -158,7 +156,18 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
             ))}
           </nav>
         </div>
+
         <div className="p-2">
+          <div className="sidebar-menu mb-4">
+            <Link
+              href="/support-center"
+              className={`text-gray-400 text-[14px] font-medium flex items-center gap-2 menu-item rounded-md px-2 py-2 ${
+                isActiveSc && "active"
+              }`}
+            >
+              <IconHelpCircle size={16} /> Support Center
+            </Link>
+          </div>
           <Dialog>
             <DialogTrigger asChild>
               <Button className="w-full bg-gray-800">Logout</Button>
