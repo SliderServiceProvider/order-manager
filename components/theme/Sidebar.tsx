@@ -160,12 +160,12 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
         <div className="p-2">
           <div className="sidebar-menu mb-4">
             <Link
-              href="/support-center"
+              href="/order-support"
               className={`text-gray-400 text-[14px] font-medium flex items-center gap-2 menu-item rounded-md px-2 py-2 ${
                 isActiveSc && "active"
               }`}
             >
-              <IconHelpCircle size={16} /> Support Center
+              <IconHelpCircle size={16} />Order Support
             </Link>
           </div>
           <Dialog>

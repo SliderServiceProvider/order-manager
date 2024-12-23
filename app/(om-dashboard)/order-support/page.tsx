@@ -17,7 +17,7 @@ import api from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { MessageSquareWarning } from "lucide-react";
-import { TicketHistory } from "@/components/support-center/TicketHistory";
+import { TicketHistory } from "@/components/order-support/TicketHistory";
 import { IconHelpCircle } from "@tabler/icons-react";
 
 export default function page() {
@@ -97,7 +97,7 @@ export default function page() {
   return (
     <>
       <div className="page-header flex justify-between">
-        <h4 className="text-2xl text-black font-semibold">Ticket List</h4>
+        <h4 className="text-2xl text-black font-semibold">Order Support</h4>
         <Button onClick={() => handleClick()} className="bg-black text-white">
           <IconHelpCircle /> Create Ticket
         </Button>

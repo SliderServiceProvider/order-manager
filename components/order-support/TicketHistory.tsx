@@ -135,7 +135,7 @@ export function TicketHistory({ refreshTrigger }: PayoutHistoryProps) {
     <>
       <Card className="mt-10">
         <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-          <CardTitle className="font-medium">Payout History</CardTitle>
+          <CardTitle className="font-medium">Ticket List</CardTitle>
           <div className="flex gap-2">
             <Input
               placeholder="Search tickets..."
