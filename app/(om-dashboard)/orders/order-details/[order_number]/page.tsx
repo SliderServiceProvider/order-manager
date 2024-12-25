@@ -47,6 +47,7 @@ interface Order {
   task_status: string;
   payable_amount: string;
   order_cost: string;
+  delivery_status: number;
   status: string;
   created_at: string;
   cod_amount: string;
@@ -120,7 +121,7 @@ const Page: React.FC<PageProps> = ({ params }) => {
         { key: "Order Time", value: order.order_time },
         { key: "Order Status", value: order.task_status },
         { key: "Vehicle Type", value: order.vehicle_title },
-        { key: "Order Cost", value: order.order_cost },
+        { key: "Order Cost", value: order.payable_amount },
       ]
     : [];
   const PickupData = order?.pickup
@@ -226,12 +227,25 @@ const Page: React.FC<PageProps> = ({ params }) => {
           Order Details / {order_number}
         </h4>
         <div>
-          {/* <Button
-            onClick={() => handleClick()}
-            className="bg-red-500 text-white mr-2"
-          >
-            <MessageSquareWarning /> Report Order
-          </Button> */}
+          {order?.delivery_status === 5 ? (
+            <Button className="bg-red-500 text-white mr-2">Cancelled</Button>
+          ) : // <span className="bg-rose-100 text-rose-500 font-semibold px-2 py-2 rounded">
+          //   Cancelled
+          // </span>
+          order?.delivery_status === 6 ? (
+            <Button className="bg-emerald-500 text-white mr-2">
+              Completed
+            </Button>
+          ) : order?.delivery_status === 2 ? (
+            <Button className="bg-pink-500 text-white mr-2">
+              Un Assigned
+            </Button>
+          ) : order?.delivery_status === 3 ? (
+            <Button className="bg-blue-500 text-white mr-2">Assigned</Button>
+          ) : (
+            ''
+          )}
+
           <Button variant="outline">
             <Link href="/orders" className="flex items-center">
               <IconChevronLeft /> Back to Order List

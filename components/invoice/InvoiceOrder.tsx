@@ -28,6 +28,7 @@ interface InvoiceOrderProps {
   reason?: string;
   orderTime: string;
   order_pricing?: string;
+  order_status: number;
 }
 
 interface PaginationLink {
@@ -155,7 +156,8 @@ export default function InvoiceOrder({
               <th className="border p-4">Vehicle Type</th>
               <th className="border p-4">Order Time</th>
               <th className="border p-4">Order Value</th>
-              <th className="border p-4"></th>
+              <th className="border p-4">Status</th>
+              <th className="border p-4">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -184,6 +186,20 @@ export default function InvoiceOrder({
                   <td className="border px-4 py-2 text-center">
                     {order.order_pricing}
                   </td>
+                  <td className="border px-4 py-2 text-center">
+                    {order.order_status === 5 ? (
+                      <span className="bg-rose-100 text-rose-500 text-xs font-semibold px-2 py-1 rounded-full">
+                        Cancelled
+                      </span>
+                    ) : order.order_status === 6 ? (
+                      <span className="bg-emerald-100 text-emerald-500 text-xs font-semibold px-2 py-1 rounded-full">
+                        Completed
+                      </span>
+                    ) : (
+                      order.order_status
+                    )}
+                  </td>
+
                   <td
                     className={`px-4 py-2 gap-2 justify-center ${
                       order.order_type !== "compensation" ? "flex border" : ""
