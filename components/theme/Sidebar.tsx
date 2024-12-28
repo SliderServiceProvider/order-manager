@@ -13,6 +13,7 @@ import {
   MapPinHouse,
   ChartNoAxesCombined,
   MessageSquareWarning,
+  UserCog2,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -94,6 +95,11 @@ const navigation: NavItem[] = [
     title: "Chat",
     href: "/chat",
     icon: IconMessage,
+  },
+  {
+    title: "Account Settings",
+    href: "/account-settings",
+    icon: UserCog2,
   },
 ];
 
