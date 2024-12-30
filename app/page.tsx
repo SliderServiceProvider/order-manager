@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -105,6 +106,11 @@ export default function LoginPage() {
               required
               className="mt-1 border-none bg-gray-100 rounded-xl h-12"
             />
+          </div>
+          <div>
+            <Link href="forgot-password" className="text-sm">
+              Forgot Passowrd
+            </Link>
           </div>
           <div className="mt-4">
             <Button
