@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
@@ -8,11 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import api from "@/services/api";
 
-export default function ResetPassword({
-  params,
-}: {
-  params: { token: string };
-}) {
+interface PageProps {
+  params: Promise<{
+    token: string;
+  }>;
+}
+
+const Page: React.FC<PageProps> = ({ params }) => {
+  const unwrappedParams = use(params); // Unwrap the `params` promise
+  const { token } = unwrappedParams; // Access `id` safely
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +37,7 @@ export default function ResetPassword({
     try {
       // Replace with your actual Laravel API endpoint
       await api.post("/reset-password", {
-        token: params.token,
+        token: token,
         password,
         password_confirmation: confirmPassword,
       });
