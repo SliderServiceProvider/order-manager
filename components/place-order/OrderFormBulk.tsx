@@ -390,7 +390,7 @@ export default function OrderFormBulk({
         return;
       }
 
-      const MAX_COD_AMOUNT = 500;
+      const MAX_COD_AMOUNT = 400;
 
       if (
         !formData[type]?.cod_amount ||
