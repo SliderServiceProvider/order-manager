@@ -335,7 +335,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         return;
       }
 
-      const MAX_COD_AMOUNT = 500;
+      const MAX_COD_AMOUNT = 400;
 
       if (deliveryType === "cod" && !formData.package.cod_amount) {
         toast({
@@ -345,7 +345,10 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         });
         return;
       }
-      if (deliveryType === "cod" && (formData.package?.cod_amount ?? 0) > 500) {
+      if (
+        deliveryType === "cod" &&
+        (formData.package?.cod_amount ?? 0) > MAX_COD_AMOUNT
+      ) {
         toast({
           variant: "destructive",
           title: "Submission failed",
