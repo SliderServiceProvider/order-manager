@@ -392,24 +392,29 @@ export default function OrderFormBulk({
 
       const MAX_COD_AMOUNT = 400;
 
-      if (
-        !formData[type]?.cod_amount ||
-        isNaN(Number(formData[type]?.cod_amount))
-      ) {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description: `The valid COD amount is required for ${type}.`,
-        });
-        return;
-      }
-      if ((formData[type]?.cod_amount ?? 0) > MAX_COD_AMOUNT) {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description: `The COD amount cannot exceed AED ${MAX_COD_AMOUNT}, Please enter a valid amount.`,
-        });
-        return;
+      // If cod_amount is a string in your form data
+      if (formData[type]?.cod_amount) {
+        const codAmount = Number(formData[type].cod_amount);
+
+        // Check if it's not a valid number
+        if (isNaN(codAmount) || !Number.isInteger(codAmount)) {
+          toast({
+            variant: "destructive",
+            title: "Submission failed",
+            description: `Please enter a valid whole number for COD amount.`,
+          });
+          return;
+        }
+
+        // Check if it exceeds maximum
+        if (codAmount > MAX_COD_AMOUNT) {
+          toast({
+            variant: "destructive",
+            title: "Submission failed",
+            description: `The COD amount cannot exceed AED ${MAX_COD_AMOUNT}. Please enter a valid amount.`,
+          });
+          return;
+        }
       }
     }
 
@@ -445,17 +450,7 @@ export default function OrderFormBulk({
         });
         return;
       }
-      // if (
-      //   deliveryType === "cod" &&
-      //   (!formData.package.cod_amount || formData.package.cod_amount === 0)
-      // ) {
-      //   toast({
-      //     variant: "destructive",
-      //     title: "Submission failed",
-      //     description: "Please enter a valid COD amount.",
-      //   });
-      //   return;
-      // }
+      
       
     }
     // Clear input field when moving to the next screen
@@ -994,6 +989,7 @@ export default function OrderFormBulk({
                     <Label htmlFor={`${type}-cod_amount`}>COD Amount</Label>
                     <Input
                       className="h-11"
+                      step="1"
                       id={`${type}-cod_amount`}
                       placeholder="Enter cod amount"
                       value={formData[type]?.cod_amount || ""} // Ensure safety with optional chaining
