@@ -99,6 +99,11 @@ interface InvoiceReminder {
   message: string;
 }
 
+// Define types for prefix groups
+type PrefixGroup = {
+  prefixes: string[];
+  length: number;
+};
 export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   const userId = useAppSelector((state) => state.auth.user?.id); // Access user name from Redux state
   const router = useRouter();
@@ -198,7 +203,72 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     ];
     return validCodes.some((code) => number.startsWith(code));
   };
-  
+
+  // Function to check if the phone number starts with a valid mobile network code
+  const validatePhoneNumber = (
+    phoneNumber: string
+  ): { isValid: boolean; error?: string } => {
+    // Remove any whitespace
+    const number = phoneNumber.trim();
+
+    // Validation groups with their expected lengths
+    const validationGroups: PrefixGroup[] = [
+      {
+        prefixes: ["02", "03", "04", "06", "07", "08", "09"],
+        length: 9,
+      },
+      {
+        prefixes: ["050", "052", "054", "055", "056", "057", "058"],
+        length: 10,
+      },
+    ];
+
+    // Check if empty
+    if (!number) {
+      return {
+        isValid: false,
+        error: "Please enter a recipient number.",
+      };
+    }
+
+    // Check if starts with 0
+    if (!number.startsWith("0")) {
+      return {
+        isValid: false,
+        error: "Phone number must start with 0.",
+      };
+    }
+
+    // Check if it's a valid number (only digits)
+    if (!/^\d+$/.test(number)) {
+      return {
+        isValid: false,
+        error: "Phone number must contain only digits.",
+      };
+    }
+
+    // Check against validation groups
+    for (const group of validationGroups) {
+      if (group.prefixes.some((prefix) => number.startsWith(prefix))) {
+        if (number.length !== group.length) {
+          return {
+            isValid: false,
+            error: "Invalid phone number. Check the format and length.",
+            // error: `Phone numbers starting with ${group.prefixes.join(
+            //   ", "
+            // )} must be ${group.length} digits long.`,
+          };
+        }
+        return { isValid: true };
+      }
+    }
+
+    return {
+      isValid: false,
+      error: "Invalid phone number. Please enter a valid phone number.",
+    };
+  };
+
   // Fetch Primary Address to show as pickup location
   const fetchPrimaryAddress = async () => {
     setLoading(true);
@@ -345,50 +415,18 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       //   });
       //   return;
       // }
-      const receiverPhoneNumber = formData.package.receiver_phone_number;
-      // Check if the phone number is empty
-      if (!receiverPhoneNumber.trim()) {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description: "Please enter a recipient number.",
-        });
-        return false;
-      }
-      // Check if the phone number starts with 0
-      if (!/^0/.test(receiverPhoneNumber)) {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description: "Phone number must start with 0.",
-        });
-        return false;
-      }
-      // Check if the phone number starts with a valid mobile network code
-      if (!startsWithValidMobileNetworkCode(receiverPhoneNumber)) {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description:
-            "Invalid phone number. Please enter a valid phone number.",
-        });
-        return false;
-      }
+      const validation = validatePhoneNumber(
+        formData.package.receiver_phone_number
+      );
 
-      if (
-        (receiverPhoneNumber.startsWith("02") &&
-          receiverPhoneNumber.length != 9) ||
-        (receiverPhoneNumber.startsWith("05") &&
-          receiverPhoneNumber.length != 10)
-      ) {
+      if (!validation.isValid) {
         toast({
           variant: "destructive",
           title: "Submission failed",
-          description: "Invalid phone number. Check the format and length.",
+          description: validation.error,
         });
         return false;
       }
-
       // Validate schedule time if selectedDate is provided
       if (selectedDate && !selectedTime) {
         toast({
