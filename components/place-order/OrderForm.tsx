@@ -178,7 +178,27 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   const [orderNumber, setOrderNumber] = useState("");
   const [open, setOpen] = useState(false);
   const [responseMessage, setResponseMessage] = useState<string | null>(null);
-
+  // Function to check if the phone number starts with a valid mobile network code
+  const startsWithValidMobileNetworkCode = (number: string): boolean => {
+    const validCodes = [
+      "02",
+      "03",
+      "04",
+      "06",
+      "07",
+      "08",
+      "09",
+      "050",
+      "052",
+      "054",
+      "055",
+      "056",
+      "057",
+      "058",
+    ];
+    return validCodes.some((code) => number.startsWith(code));
+  };
+  
   // Fetch Primary Address to show as pickup location
   const fetchPrimaryAddress = async () => {
     setLoading(true);
@@ -317,14 +337,58 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         return;
       }
       // Check receiver number is empty or not
-      if (!formData.package.receiver_phone_number.trim()) {
+      // if (!formData.package.receiver_phone_number.trim()) {
+      //   toast({
+      //     variant: "destructive",
+      //     title: "Submission failed",
+      //     description: "Please enter a recipient number.",
+      //   });
+      //   return;
+      // }
+      const receiverPhoneNumber = formData.package.receiver_phone_number;
+      // Check if the phone number is empty
+      if (!receiverPhoneNumber.trim()) {
         toast({
           variant: "destructive",
           title: "Submission failed",
           description: "Please enter a recipient number.",
         });
-        return;
+        return false;
       }
+      // Check if the phone number starts with 0
+      if (!/^0/.test(receiverPhoneNumber)) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Phone number must start with 0.",
+        });
+        return false;
+      }
+      // Check if the phone number starts with a valid mobile network code
+      if (!startsWithValidMobileNetworkCode(receiverPhoneNumber)) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description:
+            "Invalid phone number. Please enter a valid phone number.",
+        });
+        return false;
+      }
+
+      if (
+        (receiverPhoneNumber.startsWith("02") &&
+          receiverPhoneNumber.length != 9) ||
+        (receiverPhoneNumber.startsWith("05") &&
+          receiverPhoneNumber.length != 10)
+      ) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Invalid phone number. Check the format and length.",
+        });
+        return false;
+      }
+
       // Validate schedule time if selectedDate is provided
       if (selectedDate && !selectedTime) {
         toast({

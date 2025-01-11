@@ -219,6 +219,27 @@ export default function OrderFormBulk({
     []
   );
 
+  // Function to check if the phone number starts with a valid mobile network code
+  const startsWithValidMobileNetworkCode = (number: string): boolean => {
+    const validCodes = [
+      "02",
+      "03",
+      "04",
+      "06",
+      "07",
+      "08",
+      "09",
+      "050",
+      "052",
+      "054",
+      "055",
+      "056",
+      "057",
+      "058",
+    ];
+    return validCodes.some((code) => number.startsWith(code));
+  };
+
   const fetchPrimaryAddress = useCallback(async () => {
     setLoading(true);
 
@@ -381,13 +402,49 @@ export default function OrderFormBulk({
 
     // Receiver Number and COD Amount Validation for Dropoff and DropoffTwo
     if (type === "dropoff" || type === "dropoffTwo") {
-      if (!formData[type]?.receiver_phone_number?.trim()) {
+      const receiverPhoneNumber = formData[type]?.receiver_phone_number?.trim();
+      if (!receiverPhoneNumber) {
         toast({
           variant: "destructive",
           title: "Submission failed",
           description: `Please enter a valid receiver number for ${type}.`,
         });
         return;
+      }
+
+      // Check if the phone number starts with 0
+      if (!/^0/.test(receiverPhoneNumber)) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Phone number must start with 0.",
+        });
+        return false;
+      }
+
+      // Check if the phone number starts with a valid mobile network code
+      if (!startsWithValidMobileNetworkCode(receiverPhoneNumber)) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description:
+            "Invalid phone number. Please enter a valid phone number.",
+        });
+        return false;
+      }
+
+      if (
+        (receiverPhoneNumber.startsWith("02") &&
+          receiverPhoneNumber.length != 9) ||
+        (receiverPhoneNumber.startsWith("05") &&
+          receiverPhoneNumber.length != 10)
+      ) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Invalid phone number. Check the format and length.",
+        });
+        return false;
       }
 
       const MAX_COD_AMOUNT = 400;
@@ -450,8 +507,6 @@ export default function OrderFormBulk({
         });
         return;
       }
-      
-      
     }
     // Clear input field when moving to the next screen
     setPasteLocationInput("");
@@ -970,7 +1025,7 @@ export default function OrderFormBulk({
                     <Input
                       className="h-11"
                       id={`${type}-receiver_phone_number`}
-                      placeholder="Enter receiver number"
+                      placeholder="Required format 05XXXXXXXX"
                       value={formData[type]?.receiver_phone_number || ""} // Ensure safety with optional chaining
                       onChange={(e) =>
                         setFormData((prev) => ({
