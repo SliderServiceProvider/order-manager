@@ -30,7 +30,7 @@ export default function LoginPage() {
     try {
       const response = await api.post(
         "/auth/login",
-        { email, password,"device":"web" }
+        { email, password,"device_type":"web" }
         // { withCredentials: true }
       );
 

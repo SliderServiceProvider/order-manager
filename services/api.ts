@@ -24,17 +24,17 @@ api.interceptors.request.use(
 );
 
 // Response interceptor to handle auth errors
-// api.interceptors.response.use(
-//   (response) => response,
-//   async (error) => {
-//     if (error.response?.status === 401) {
-//       // Handle unauthorized error (e.g., clear auth state and redirect to login)
-//       localStorage.removeItem("token");
-//       localStorage.removeItem("user");
-//       window.location.href = "/";
-//     }
-//     return Promise.reject(error);
-//   }
-// );
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Handle unauthorized error (e.g., clear auth state and redirect to login)
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "/";
+    }
+    return Promise.reject(error);
+  }
+);
 
 export default api;
