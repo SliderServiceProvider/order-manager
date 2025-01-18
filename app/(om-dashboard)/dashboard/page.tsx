@@ -124,21 +124,27 @@ export default function DashboardPage(): JSX.Element {
             </div>
             <div className="col-span-4">
               <DataExport />
-              {/* <Button className="bg-emerald-600">Export Data</Button> */}
             </div>
           </div>
         )}
 
-        {/* Export Data */}
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
-          <div className="col-span-12 ltablet:col-span-12">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-12">
+          <div
+            className={`${
+              !isInvoiceUser ? "col-span-8" : "col-span-12"
+            } ltablet:col-span-12`}
+          >
             {loading ? (
               <div>Loading recent orders...</div>
             ) : (
               <RecentOrdersSection orders={recentOrders} />
             )}
           </div>
+          {!isInvoiceUser && ( // Show DataExport only if invoiceOrder exists
+            <div className="col-span-4">
+              <DataExport />
+            </div>
+          )}
         </div>
       </div>
       {/* Invoice Reminder Modal */}
