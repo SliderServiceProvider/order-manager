@@ -20,6 +20,7 @@ type TabType = "on_progress" | "completed" | "scheduled" | "cancelled";
 interface Order {
   id: number;
   order_number: number;
+  order_display_id: string;
   order_reference_number: string;
   order_type: string;
   order_time: string;

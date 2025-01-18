@@ -8,6 +8,8 @@ import api from "@/services/api";
 import { log } from "console";
 import Head from "next/head";
 import WarningModal from "@/components/invoice-warning/WarningModal";
+import { Button } from "@/components/ui/button";
+import DataExport from "@/components/dashboard/DataExport";
 
 // Define your data types
 interface DataType {
@@ -110,20 +112,24 @@ export default function DashboardPage(): JSX.Element {
         )}
 
         {isInvoiceUser && (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
-            <div className="col-span-12 ltablet:col-span-12 flex">
-              <div className="w-full flex-grow">
-                {recentTransactions ? (
-                  <RecentTransactionsSection
-                    recentTransactions={recentTransactions}
-                  />
-                ) : (
-                  <div>Loading recentTransactions Summary...</div> // Optional loading message
-                )}
-              </div>
+          <div className="grid grid-cols-2 gap-6 md:grid-cols-12">
+            <div className="col-span-8 ltablet:col-span-12 flex">
+              {recentTransactions ? (
+                <RecentTransactionsSection
+                  recentTransactions={recentTransactions}
+                />
+              ) : (
+                <div>Loading recentTransactions Summary...</div> // Optional loading message
+              )}
+            </div>
+            <div className="col-span-4">
+              <DataExport />
+              {/* <Button className="bg-emerald-600">Export Data</Button> */}
             </div>
           </div>
         )}
+
+        {/* Export Data */}
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
           <div className="col-span-12 ltablet:col-span-12">

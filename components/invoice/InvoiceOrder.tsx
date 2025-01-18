@@ -18,10 +18,12 @@ import {
   PaginationPrevious,
 } from "../ui/pagination";
 import { Button } from "../ui/button";
+import Link from "next/link";
 
 interface InvoiceOrderProps {
   id: number;
   order_number: string;
+  order_display_id: string;
   order_reference_number: string;
   vehicle_type?: string;
   order_type?: string;
@@ -157,7 +159,7 @@ export default function InvoiceOrder({
               <th className="border p-4">Order Time</th>
               <th className="border p-4">Order Value</th>
               <th className="border p-4">Status</th>
-              <th className="border p-4">Action</th>
+              {/* <th className="border p-4">Action</th> */}
             </tr>
           </thead>
           <tbody>
@@ -165,7 +167,9 @@ export default function InvoiceOrder({
               orders.map((order) => (
                 <tr key={order.id}>
                   <td className="border px-4 py-2 text-center">
-                    {order.order_number}
+                    <Link className="text-blue-500" href={`/orders/order-details/${order.order_number}`}>
+                      {order.order_display_id}
+                    </Link>
                   </td>
                   {isShowOrderRefNo && (
                     <td className="border px-4 py-2 text-center">
@@ -200,7 +204,7 @@ export default function InvoiceOrder({
                     )}
                   </td>
 
-                  <td
+                  {/* <td
                     className={`px-4 py-2 gap-2 justify-center ${
                       order.order_type !== "compensation" ? "flex border" : ""
                     }`}
@@ -213,7 +217,7 @@ export default function InvoiceOrder({
                         <IconEye />
                       </a>
                     )}
-                  </td>
+                  </td> */}
                 </tr>
               ))
             ) : (

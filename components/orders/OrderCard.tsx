@@ -26,6 +26,7 @@ import FeedbackForm from "./FeedbackForm";
 interface Order {
   id: number;
   order_number: number;
+  order_display_id: string;
   order_reference_number: string;
   order_type: string;
   order_time: string;
@@ -230,7 +231,7 @@ export default function OrderCard({
           </p>
           <div>
             <span className="text-gray-600">Order Number : </span>
-            {order.order_number}
+            {order.order_display_id}
           </div>
           {order.order_reference_number && (
             <div>

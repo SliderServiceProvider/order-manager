@@ -68,7 +68,7 @@ export function RecentTransactionsSection({
   recentTransactions,
 }: RecentTransactionsSectionProps): JSX.Element {
   return (
-    <Card className="card bg-white">
+    <Card className="card bg-white w-full">
       <CardHeader className="flex flex-row items-center justify-between">
         <h4 className="text-black font-semibold uppercase">
           RECENT TRANSACTIONS
