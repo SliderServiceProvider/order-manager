@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import api from "@/services/api";
+import { log } from "node:console";
 
 const MIN_DATE = new Date(2025, 0, 1); // January 1, 2025
 
@@ -64,35 +65,48 @@ export default function DataExport() {
         {
           startDate,
           endDate,
-          format: exportFormat,
+          format: exportFormat, // 'csv' or 'pdf'
         },
         {
           responseType: "blob",
           headers: {
-            Accept: "text/csv",
+            Accept: exportFormat === "pdf" ? "application/pdf" : "text/csv",
           },
         }
       );
 
-      // Get filename from Content-Disposition header
-      const contentDisposition = response.headers["content-disposition"];
-      let fileName = "orders_report.csv"; // default filename
+      // Get filename from response headers
+      const disposition = response.headers["content-disposition"];
+      let filename = "";
 
-      if (contentDisposition) {
-        const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(
-          contentDisposition
-        );
+      // Extract filename from Content-Disposition header
+      if (disposition && disposition.indexOf("attachment") !== -1) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+        const matches = filenameRegex.exec(disposition);
         if (matches != null && matches[1]) {
-          fileName = matches[1].replace(/['"]/g, "");
+          filename = matches[1].replace(/['"]/g, "");
         }
       }
 
+      // If no filename found, construct one
+      if (!filename) {
+        const startDateStr = date?.from
+          ? date.from.toISOString().split("T")[0]
+          : "2025-01-01";
+        const endDateStr = date?.to
+          ? date.to.toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0];
+        filename = `orders_report_${startDateStr}_to_${endDateStr}.${exportFormat}`;
+      }
+
       // Create blob and download
-      const blob = new Blob([response.data], { type: "text/csv" });
+      const blob = new Blob([response.data], {
+        type: exportFormat === "pdf" ? "application/pdf" : "text/csv",
+      });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", fileName);
+      link.setAttribute("download", filename);
       document.body.appendChild(link);
       link.click();
 
