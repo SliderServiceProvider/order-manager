@@ -126,7 +126,7 @@ export default function DataExport() {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full mx-auto">
       <CardHeader className="space-y-1">
         <CardTitle className="text-base font-bold uppercase">
           Export Data
