@@ -63,6 +63,7 @@ type PackageData = {
   receiver_phone_number: string;
   tip: number;
   order_reference_number: string;
+  order_reference_number_two: string;
   cod_amount: number;
 };
 
@@ -139,6 +140,7 @@ const initialFormData: FormData = {
     receiver_phone_number: "",
     tip: 0,
     order_reference_number: "",
+    order_reference_number_two: "",
     cod_amount: 0,
   },
 };
@@ -735,6 +737,8 @@ export default function OrderFormBulk({
     tip: selectedTip === "custom" ? parseFloat(customTip) || 0 : selectedTip,
     recipient_phone: formData.package?.receiver_phone_number || null,
     order_reference_number: formData.package?.order_reference_number || null,
+    order_reference_number_two:
+      formData.package?.order_reference_number_two || null,
     cod_amount: formData.package?.cod_amount || null,
     distance: distance || 0,
     duration: duration || 0,
@@ -1327,27 +1331,59 @@ export default function OrderFormBulk({
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="order_reference_number">
-                      Order Reference Number
-                      <span className="italic text-gray-500">(optional)</span>
-                    </Label>
-                    <Input
-                      className="h-11"
-                      id="order_reference_number"
-                      placeholder="Enter order reference number"
-                      value={formData.package.order_reference_number || ""} // Controlled input
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          package: {
-                            ...prev.package,
-                            order_reference_number: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
+                  {isInvoiceUser && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-1/2">
+                        <Label htmlFor="order_reference_number">
+                          Order Reference Number 1
+                          <span className="italic text-gray-500">
+                            (optional)
+                          </span>
+                        </Label>
+                        <Input
+                          className="h-11"
+                          id="order_reference_number"
+                          placeholder="Enter order reference number"
+                          value={formData.package.order_reference_number || ""} // Controlled input
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              package: {
+                                ...prev.package,
+                                order_reference_number: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="w-1/2">
+                        <Label htmlFor="order_reference_number_two">
+                          Order Reference Number 2
+                          <span className="italic text-gray-500">
+                            (optional)
+                          </span>
+                        </Label>
+                        <Input
+                          className="h-11"
+                          id="order_reference_number_two"
+                          placeholder="Enter order reference number"
+                          value={
+                            formData.package.order_reference_number_two || ""
+                          } // Controlled input
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              package: {
+                                ...prev.package,
+                                order_reference_number_two: e.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label>Schedule Time</Label>
                     <DateTimePicker
