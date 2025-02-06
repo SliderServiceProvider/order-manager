@@ -1,13 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Camera, MoreVertical, Search, Send, ArrowLeft } from "lucide-react";
-import axios from "axios";
+import { MoreVertical, Search, Send, ArrowLeft } from "lucide-react";
 import api from "@/services/api";
+
+import * as Pusher from "pusher-js";
+window.Pusher = Pusher;
+
+import {
+  initializeWebSocket,
+  subscribeToChannel,
+  leaveChannel,
+} from "@/utils/websocket";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 type Message = {
   id: number;
@@ -48,6 +57,9 @@ export default function Chat() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchDrivers = useCallback(async () => {
     try {
@@ -95,12 +107,21 @@ export default function Chat() {
     setError(null);
     try {
       const response = await api.post("/chat/send-message", {
-        order_id: selectedDriver.order_id, // Assuming the driver ID is the same as the order ID for this example
+        order_id: selectedDriver.order_id,
         message: message,
         receiver_id: selectedDriver.driver.id,
       });
-      setMessages((prevMessages) => [...prevMessages, response.data.data]);
+      setMessages((prevMessages) => {
+        const updatedMessages = [...prevMessages, response.data.data];
+        // Scroll to bottom after state update
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 0);
+        return updatedMessages;
+      });
       setMessage("");
+      // Focus the input field after sending a message
+      inputRef.current?.focus();
     } catch (error) {
       console.error("Error sending message:", error);
       setError("Failed to send message. Please try again.");
@@ -112,11 +133,87 @@ export default function Chat() {
   const handleDriverSelect = (driver: ChatIndex) => {
     setSelectedDriver(driver);
     fetchMessages(driver.id, driver.order_number);
+    // Focus the input field after a short delay to ensure the chat window is rendered
+    setTimeout(() => inputRef.current?.focus(), 100);
   };
 
   const handleSuggestionClick = (suggestion: string) => {
     setMessage(suggestion);
   };
+
+  // useEffect(() => {
+  //   initializeWebSocket();
+
+  //   return () => {
+  //     if (selectedDriver) {
+  //       leaveChannel(`chat.${selectedDriver.order_id}`);
+  //     }
+  //   };
+  // }, [selectedDriver]);
+  useEffect(() => {
+    console.log("🟢 Calling initializeWebSocket...");
+    initializeWebSocket();
+  }, []);
+
+  useEffect(() => {
+    const scrollToBottom = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    scrollToBottom();
+    // Set up a short delay to scroll after the DOM has been updated
+    const timeoutId = setTimeout(scrollToBottom, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [messages]);
+
+  useEffect(() => {
+    // Create the audio element
+    audioRef.current = new Audio("/sounds/message-notification.mp3");
+
+    // Preload the audio
+    audioRef.current.load();
+
+    // Optional: Log any errors that occur when setting up the audio
+    audioRef.current.onerror = (e) => {
+      console.error("Error setting up audio:", e);
+    };
+
+    return () => {
+      // Cleanup
+      if (audioRef.current) {
+        audioRef.current.onerror = null;
+      }
+    };
+  }, []);
+
+  const playNotificationSound = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.play().catch((error) => {
+        console.error("Error playing sound:", error);
+        // If autoplay is blocked, we can inform the user or try to play on user interaction
+      });
+    }
+  }, []);
+
+  const handleNewMessage = useCallback(
+    (data: { message: Message }) => {
+      setMessages((prevMessages) => {
+        const updatedMessages = [...prevMessages, data.message];
+        // Scroll to bottom after state update
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 0);
+        return updatedMessages;
+      });
+
+      // Only play sound for messages not sent by the current user
+      if (data.message.sender_type !== "user") {
+        playNotificationSound();
+      }
+    },
+    [playNotificationSound]
+  );
 
   const renderDriverList = () => (
     <div className="w-full md:w-80 border-r flex flex-col h-full">
@@ -175,7 +272,7 @@ export default function Chat() {
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 p-4 h-[calc(100vh-180px)]">
         {loading && <p className="text-center">Loading messages...</p>}
         {error && <p className="text-center text-red-500">{error}</p>}
         <div className="space-y-4">
@@ -205,6 +302,7 @@ export default function Chat() {
               </div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
@@ -223,6 +321,7 @@ export default function Chat() {
         </div>
         <div className="flex gap-2">
           <Input
+            ref={inputRef}
             placeholder="Enter a message here"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
@@ -241,6 +340,33 @@ export default function Chat() {
       </div>
     </div>
   );
+
+  const orderId = selectedDriver?.order_id;
+
+  const isConnected = useWebSocket(`chat.${orderId}`, "NewMessage");
+
+  useEffect(() => {
+    if (isConnected) {
+      console.log("WebSocket is connected");
+      try {
+        // For private channels
+        subscribeToChannel(`private-chat.${orderId}`, ".NewMessage", (data) => {
+          handleNewMessage(data);
+        });
+        
+      } catch (error) {
+        console.error("❌ Error in subscribing to channel:", error);
+      }
+      // Cleanup function
+      return () => {
+        try {
+          leaveChannel(`chat.${orderId}`);
+        } catch (error) {
+          console.error("❌ Error in leaving channel:", error);
+        }
+      };
+    }
+  }, [isConnected, orderId, handleNewMessage]);
 
   return (
     <div className="flex h-screen bg-white">

@@ -1,10 +1,14 @@
-import { Echo as LaravelEcho } from "laravel-echo";
-import PusherJs from "pusher-js";
+import { Channel, PresenceChannel } from "laravel-echo";
 
 declare module "laravel-echo" {
-  interface Echo extends LaravelEcho {
-    connector: {
-      pusher: PusherJs;
-    };
+  interface Echo {
+    channel(channel: string): Channel;
+    private(channel: string): Channel;
+    join(channel: string): PresenceChannel;
+    leave(channel: string): void;
+    leaveChannel(channel: string): void;
+    disconnect(): void;
+    connect(): void;
+    connector: any;
   }
 }
