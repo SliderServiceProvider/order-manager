@@ -13,7 +13,8 @@ let echo: Echo<any> | null = null;
 
 export function initializeWebSocket() {
   // const token = localStorage.getItem("token");
-  const token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTkyLjE2OC4xLjY4OjgwMDAvYXBpL3YxL2F1dGgvbG9naW4iLCJpYXQiOjE3Mzg2NjI5MDYsImV4cCI6MTc0MTI1NDkwNiwibmJmIjoxNzM4NjYyOTA2LCJqdGkiOiJnWVZFVG4wV3lKaWVMekRMIiwic3ViIjoiMTMyNCIsInBydiI6IjkxOWMzMjZkNDNhYjE1MTlhOGJhM2I4NTg2YjY4NzUyZThjODM4MDcifQ.pNSBqHk3aALWOYqxPK7zYvsbaqzaoRJNmXbUij4GUCA";
+  const token =
+    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTkyLjE2OC4xLjY4OjgwMDAvYXBpL3YxL2F1dGgvbG9naW4iLCJpYXQiOjE3Mzg5MTYwMDcsImV4cCI6MTc0MTUwODAwNywibmJmIjoxNzM4OTE2MDA3LCJqdGkiOiJqaEpnejR3YTBESEd5YWFxIiwic3ViIjoiMTMyNCIsInBydiI6IjkxOWMzMjZkNDNhYjE1MTlhOGJhM2I4NTg2YjY4NzUyZThjODM4MDcifQ.6y2R6SqQhPXBF6i64DDii2Ppyc4s_fT3HNU8b-qGbWA";
 
   if (typeof window !== "undefined" && !window.Echo) {
     window.Pusher = Pusher;

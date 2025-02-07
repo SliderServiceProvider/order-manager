@@ -141,17 +141,8 @@ export default function Chat() {
     setMessage(suggestion);
   };
 
-  // useEffect(() => {
-  //   initializeWebSocket();
 
-  //   return () => {
-  //     if (selectedDriver) {
-  //       leaveChannel(`chat.${selectedDriver.order_id}`);
-  //     }
-  //   };
-  // }, [selectedDriver]);
   useEffect(() => {
-    console.log("🟢 Calling initializeWebSocket...");
     initializeWebSocket();
   }, []);
 

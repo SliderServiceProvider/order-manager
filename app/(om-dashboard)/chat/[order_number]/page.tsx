@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, use, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,14 +46,14 @@ type Suggestions = {
 };
 
 interface PageProps {
-  params: {
+  params: Promise<{
     order_number: string;
-  };
+  }>;
 }
 
 const Page: React.FC<PageProps> = ({ params }) => {
-  const { order_number } = params;
-
+  const unwrappedParams = use(params); // Unwrap the `params` promise
+  const { order_number } = unwrappedParams; // Access `order_number` safely
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedDriver, setSelectedDriver] = useState<ChatIndex | null>(null);
@@ -62,6 +62,9 @@ const Page: React.FC<PageProps> = ({ params }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchDrivers = useCallback(async () => {
     try {
@@ -135,6 +138,10 @@ const Page: React.FC<PageProps> = ({ params }) => {
   };
 
   useEffect(() => {
+    initializeWebSocket();
+  }, []);
+
+  useEffect(() => {
     // Fetch drivers on component mount
     const fetchDriversAndSelectDefault = async () => {
       try {
@@ -167,19 +174,65 @@ const Page: React.FC<PageProps> = ({ params }) => {
     return () => window.removeEventListener("resize", handleResize);
   }, [order_number, fetchMessages]);
 
-  // useEffect(() => {
-  //   initializeWebSocket();
+  useEffect(() => {
+    const scrollToBottom = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
 
-  //   return () => {
-  //     if (selectedDriver) {
-  //       leaveChannel(`chat.${selectedDriver.order_id}`);
-  //     }
-  //   };
-  // }, [selectedDriver]);
-  // useEffect(() => {
-  //   console.log("🟢 Calling initializeWebSocket...");
-  //   // initializeWebSocket();
-  // }, []);
+    scrollToBottom();
+    // Set up a short delay to scroll after the DOM has been updated
+    const timeoutId = setTimeout(scrollToBottom, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [messages]);
+
+  useEffect(() => {
+    // Create the audio element
+    audioRef.current = new Audio("/sounds/message-notification.mp3");
+
+    // Preload the audio
+    audioRef.current.load();
+
+    // Optional: Log any errors that occur when setting up the audio
+    audioRef.current.onerror = (e) => {
+      console.error("Error setting up audio:", e);
+    };
+
+    return () => {
+      // Cleanup
+      if (audioRef.current) {
+        audioRef.current.onerror = null;
+      }
+    };
+  }, []);
+
+  const playNotificationSound = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.play().catch((error) => {
+        console.error("Error playing sound:", error);
+        // If autoplay is blocked, we can inform the user or try to play on user interaction
+      });
+    }
+  }, []);
+
+  const handleNewMessage = useCallback(
+    (data: { message: Message }) => {
+      setMessages((prevMessages) => {
+        const updatedMessages = [...prevMessages, data.message];
+        // Scroll to bottom after state update
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 0);
+        return updatedMessages;
+      });
+
+      // Only play sound for messages not sent by the current user
+      if (data.message.sender_type !== "user") {
+        playNotificationSound();
+      }
+    },
+    [playNotificationSound]
+  );
 
   const renderDriverList = () => (
     <div className="w-full md:w-80 border-r flex flex-col h-full">
@@ -268,6 +321,7 @@ const Page: React.FC<PageProps> = ({ params }) => {
               </div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
 
@@ -305,30 +359,31 @@ const Page: React.FC<PageProps> = ({ params }) => {
     </div>
   );
 
-  const isConnected = useWebSocket(
-    `chat.${selectedDriver?.order_id}`,
-    "MessageSent"
-  );
+  const orderId = selectedDriver?.order_id;
+
+  const isConnected = useWebSocket(`chat.${orderId}`, "NewMessage");
 
   useEffect(() => {
-    if (isConnected && selectedDriver) {
-      console.log("websocket is connected");
-
-      const handleNewMessage = (data: { message: Message }) => {
-        setMessages((prevMessages) => [...prevMessages, data.message]);
-      };
-
-      subscribeToChannel(
-        `chat.${selectedDriver.order_id}`,
-        "MessageSent",
-        handleNewMessage
-      );
-
+    if (isConnected) {
+      console.log("WebSocket is connected");
+      try {
+        // For private channels
+        subscribeToChannel(`private-chat.${orderId}`, ".NewMessage", (data) => {
+          handleNewMessage(data);
+        });
+      } catch (error) {
+        console.error("❌ Error in subscribing to channel:", error);
+      }
+      // Cleanup function
       return () => {
-        leaveChannel(`chat.${selectedDriver.order_id}`); //
+        try {
+          leaveChannel(`chat.${orderId}`);
+        } catch (error) {
+          console.error("❌ Error in leaving channel:", error);
+        }
       };
     }
-  }, [isConnected, selectedDriver]);
+  }, [isConnected, orderId, handleNewMessage]);
 
   return (
     <div className="flex h-screen bg-white">
