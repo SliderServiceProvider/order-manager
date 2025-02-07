@@ -1,3 +1,4 @@
+import axios from "axios";
 import Echo from "laravel-echo";
 import * as Pusher from "pusher-js";
 
@@ -12,8 +13,7 @@ let echo: Echo<any> | null = null;
 
 export function initializeWebSocket() {
   // const token = localStorage.getItem("token");
-  const token =
-    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTkyLjE2OC4xLjY4OjgwMDAvYXBpL3YxL2F1dGgvbG9naW4iLCJpYXQiOjE3Mzg2NjI5MDYsImV4cCI6MTc0MTI1NDkwNiwibmJmIjoxNzM4NjYyOTA2LCJqdGkiOiJnWVZFVG4wV3lKaWVMekRMIiwic3ViIjoiMTMyNCIsInBydiI6IjkxOWMzMjZkNDNhYjE1MTlhOGJhM2I4NTg2YjY4NzUyZThjODM4MDcifQ.pNSBqHk3aALWOYqxPK7zYvsbaqzaoRJNmXbUij4GUCA";
+  const token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTkyLjE2OC4xLjY4OjgwMDAvYXBpL3YxL2F1dGgvbG9naW4iLCJpYXQiOjE3Mzg2NjI5MDYsImV4cCI6MTc0MTI1NDkwNiwibmJmIjoxNzM4NjYyOTA2LCJqdGkiOiJnWVZFVG4wV3lKaWVMekRMIiwic3ViIjoiMTMyNCIsInBydiI6IjkxOWMzMjZkNDNhYjE1MTlhOGJhM2I4NTg2YjY4NzUyZThjODM4MDcifQ.pNSBqHk3aALWOYqxPK7zYvsbaqzaoRJNmXbUij4GUCA";
 
   if (typeof window !== "undefined" && !window.Echo) {
     window.Pusher = Pusher;
@@ -38,6 +38,12 @@ export function initializeWebSocket() {
         },
       },
     });
+
+    // const checkStatus = async () => {
+    //   const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/websocket/status`);
+    //   console.log(response);
+      
+    // };
 
     console.log("✅ WebSocket initialized");
 

@@ -92,7 +92,6 @@ export default function AccountSettingsForm() {
       try {
         const response = await api.get(`/order-manager/getProfileData/`);
         const data = response.data;
-        console.log(data);
 
         // Populate form fields with fetched data
         setFormData({
@@ -179,7 +178,6 @@ export default function AccountSettingsForm() {
     setBankSubmitLoading(true);
     try {
       const response = await api.post("/user/update-account-details", bankData);
-      console.log(response);
 
       if (response.status == 200) {
         toast({
