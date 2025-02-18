@@ -1,14 +1,16 @@
 // KpiSummarySection.tsx
 import React from "react";
 import { MapPinHouse, Package, Split } from "lucide-react";
-import { IconMoneybag } from "@tabler/icons-react";
+import { IconCoins, IconCreditCardPay, IconMoneybag } from "@tabler/icons-react";
 import { Card, CardContent, CardHeader } from "../ui/card";
 
 interface KpiSummaryProps {
-  totalOrderValue: number;
-  totalOrderCount: number;
-  completedPayoutValue: number;
-  totalWalletBalance: number;
+  totalPayoutValue: string;
+  totalOrderCount: string;
+  completedPayoutValue: string;
+  totalAvailablePayoutBalance: string;
+  totalToupBalance: string;
+  totalWalletBalance: string;
 }
 
 interface KpiSummarySectionProps {
@@ -21,6 +23,7 @@ interface SummaryItemProps {
   value: string;
   change: string;
   bgColor: string;
+  type: string;
 }
 
 function SummaryItem({
@@ -29,6 +32,7 @@ function SummaryItem({
   value,
   change,
   bgColor,
+  type
 }: SummaryItemProps) {
   return (
     <div className="flex flex-col gap-2 py-4 px-6 border-b border-r-0 md:border-b-0 md:border-r border-gray-200 dark:border-gray-700">
@@ -40,7 +44,8 @@ function SummaryItem({
       <div className="mt-4">
         <div className="mb-1 text-gray-500">{title}</div>
         <h3 className="mb-1 text-3xl font-bold">
-          <span>{value}</span>
+          {type === "amount" && <span className="text-sm mr-1">AED</span>}
+          {value}
         </h3>
         {/* <div className="inline-flex items-center flex-wrap gap-1">
           <span className="flex items-center text-green-500 font-bold">
@@ -68,32 +73,36 @@ export function KpiSummarySection({
         <CardContent>
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4 mt-6">
             <SummaryItem
-              icon={<IconMoneybag />}
-              title="Total Order Value"
-              value={`AED ${kpiSummary.totalOrderValue}`}
-              change="0%" // Placeholder, update with actual data if available
-              bgColor="bg-rose-200"
-            />
-            <SummaryItem
               icon={<Package />}
               title="Total Orders"
               value={kpiSummary.totalOrderCount.toString()}
               change="0%" // Placeholder
               bgColor="bg-sky-200"
+              type="count"
             />
             <SummaryItem
-              icon={<Split />}
+              icon={<IconMoneybag />}
+              title="Total Payout Value"
+              value={kpiSummary.totalPayoutValue}
+              change="0%" // Placeholder, update with actual data if available
+              bgColor="bg-rose-200"
+              type="amount"
+            />
+            <SummaryItem
+              icon={<IconCreditCardPay />}
               title="Completed Payout Value"
-              value={kpiSummary.completedPayoutValue.toString()}
+              value={kpiSummary.completedPayoutValue}
               change="0%" // Placeholder
               bgColor="bg-green-200"
+              type="amount"
             />
             <SummaryItem
-              icon={<MapPinHouse />}
-              title="Balance Payout Value"
-              value={`AED ${kpiSummary.totalWalletBalance.toString()}`}
+              icon={<IconCoins />}
+              title="Available Balance"
+              value={kpiSummary.totalWalletBalance}
               change="0%" // Placeholder
               bgColor="bg-purple-200"
+              type="amount"
             />
           </div>
         </CardContent>
