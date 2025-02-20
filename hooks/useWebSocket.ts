@@ -210,11 +210,11 @@ const useWebSocket = ({
       ws.onerror = (error) => {
         if (!mountedRef.current) return;
         console.error("WebSocket error:", error);
-        setWsState((prev) => ({ ...prev, error: "WebSocket error occurred" }));
+        // setWsState((prev) => ({ ...prev, error: "WebSocket error occurred" }));
       };
     } catch (error) {
       console.error("WebSocket setup error:", error);
-      setWsState((prev) => ({ ...prev, error: "Failed to setup WebSocket" }));
+    //   setWsState((prev) => ({ ...prev, error: "Failed to setup WebSocket" }));
     }
   };
 
