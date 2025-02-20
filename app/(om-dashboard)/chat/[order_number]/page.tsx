@@ -7,12 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MoreVertical, Search, Send, ArrowLeft } from "lucide-react";
 import api from "@/services/api";
-import {
-  initializeWebSocket,
-  subscribeToChannel,
-  leaveChannel,
-} from "@/utils/websocket";
-import { useWebSocket } from "@/hooks/useWebSocket";
+import useWebSocket from "@/hooks/useWebSocket";
 
 type Message = {
   id: number;
@@ -60,7 +55,6 @@ const Page: React.FC<PageProps> = ({ params }) => {
   const [drivers, setDrivers] = useState<ChatIndex[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestions[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -75,7 +69,6 @@ const Page: React.FC<PageProps> = ({ params }) => {
       setDrivers(responseData.chatList);
     } catch (error) {
       console.error("Error fetching drivers:", error);
-      setError("Failed to fetch drivers. Please try again.");
     }
   }, [order_number]);
 
@@ -90,7 +83,6 @@ const Page: React.FC<PageProps> = ({ params }) => {
   const fetchMessages = useCallback(
     async (driverId: number, orderNumber: number) => {
       setLoading(true);
-      setError(null);
       try {
         const response = await api.get(
           `/order-manager/chat/messages?order_number=${orderNumber}`
@@ -99,7 +91,6 @@ const Page: React.FC<PageProps> = ({ params }) => {
         setSuggestions(response.data.messageSuggestions);
       } catch (error) {
         console.error("Error fetching messages:", error);
-        setError("Failed to fetch messages. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -111,18 +102,25 @@ const Page: React.FC<PageProps> = ({ params }) => {
     if (!selectedDriver || !message.trim()) return;
 
     setLoading(true);
-    setError(null);
     try {
-      await api.post("/chat/send-message", {
+      const response = await api.post("/chat/send-message", {
         order_id: selectedDriver.order_id,
         message: message,
         receiver_id: selectedDriver.driver.id,
       });
-      // The new message will be added through the WebSocket event
+      setMessages((prevMessages) => {
+        const updatedMessages = [...prevMessages, response.data.data];
+        // Scroll to bottom after state update
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 0);
+        return updatedMessages;
+      });
       setMessage("");
+      // Focus the input field after sending a message
+      inputRef.current?.focus();
     } catch (error) {
       console.error("Error sending message:", error);
-      setError("Failed to send message. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -136,10 +134,6 @@ const Page: React.FC<PageProps> = ({ params }) => {
   const handleSuggestionClick = (suggestion: string) => {
     setMessage(suggestion);
   };
-
-  useEffect(() => {
-    initializeWebSocket();
-  }, []);
 
   useEffect(() => {
     // Fetch drivers on component mount
@@ -161,7 +155,6 @@ const Page: React.FC<PageProps> = ({ params }) => {
         }
       } catch (error) {
         console.error("Error fetching drivers:", error);
-        setError("Failed to fetch drivers. Please try again.");
       }
     };
 
@@ -361,29 +354,26 @@ const Page: React.FC<PageProps> = ({ params }) => {
 
   const orderId = selectedDriver?.order_id;
 
-  const isConnected = useWebSocket(`chat.${orderId}`, "NewMessage");
+  // WebSocket Connection
+  const { isConnected, error } = useWebSocket({
+    channelName: `private-chat.${orderId}`,
+    events: [
+      {
+        event: "NewMessage",
+        handler: (data) => {
+          console.log("Received message data:", data);
+          // Extract the message object from the response
+          const message = data.message;
 
-  useEffect(() => {
-    if (isConnected) {
-      console.log("WebSocket is connected");
-      try {
-        // For private channels
-        subscribeToChannel(`private-chat.${orderId}`, ".NewMessage", (data) => {
-          handleNewMessage(data);
-        });
-      } catch (error) {
-        console.error("❌ Error in subscribing to channel:", error);
-      }
-      // Cleanup function
-      return () => {
-        try {
-          leaveChannel(`chat.${orderId}`);
-        } catch (error) {
-          console.error("❌ Error in leaving channel:", error);
-        }
-      };
-    }
-  }, [isConnected, orderId, handleNewMessage]);
+          // Check if it's from the driver
+          if (message && message.sender_type === "driver") {
+            handleNewMessage(data);
+          }
+        },
+      },
+      // Add more event handlers as needed
+    ],
+  });
 
   return (
     <div className="flex h-screen bg-white">

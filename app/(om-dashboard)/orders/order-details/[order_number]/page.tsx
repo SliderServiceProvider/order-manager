@@ -11,7 +11,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
 import {
   Table,
   TableBody,
@@ -21,13 +20,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import api from "@/services/api";
+
 import { IconChevronLeft } from "@tabler/icons-react";
-import { MessageSquareWarning } from "lucide-react";
 import Link from "next/link";
-import React, { use, useEffect, useState } from "react";
+import React, { use, useEffect, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import useWebSocket from "@/hooks/useWebSocket";
+
+// Keep interfaces unchanged...
 interface PageProps {
   params: Promise<{
     order_number: string;
@@ -77,43 +78,70 @@ interface DriverDetails {
   phone_number: string;
   image_url: string | null;
 }
+
+// WebSocket configuration
+const WEBSOCKET_URL = "ws://192.168.1.68:8080/app/cjqj3woudzi1bdnbvsss";
+const RECONNECT_DELAY = 3000;
+
 const Page: React.FC<PageProps> = ({ params }) => {
-  const unwrappedParams = use(params); // Unwrap the `params` promise
-  const { order_number } = unwrappedParams; // Access `order_number` safely
+  const unwrappedParams = use(params);
+  const { order_number } = unwrappedParams;
   const { toast } = useToast();
+
+  // Group all state declarations together
   const [order, setOrder] = useState<Order | undefined>();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [submitLoading, setSubmitLoading] = useState(false); // Loading for submit button
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [submitLoading, setSubmitLoading] = useState(false);
   const [showRemarksModal, setShowRemarksModal] = useState(false);
-  const [orderRemarks, setOrderRemarks] = useState<string>(); // Loading for submit button
-  const [refreshTable, setRefreshTable] = useState(false); // Track table refresh
+  const [orderRemarks, setOrderRemarks] = useState<string>();
+  const [refreshTable, setRefreshTable] = useState(false);
 
-  const fetchOrders = async () => {
-    try {
-      setLoading(true);
+  // Derive orderId from order state
+  const orderId = order?.id ? `${order.id}` : "23403";
 
-      const formData = {
-        order_number: order_number,
-      };
+  // WebSocket Connection
+  const { isConnected, error } = useWebSocket({
+    channelName: `private-order_canceled.${orderId}`,
+    events: [
+      {
+        event: "OrderCanceled",
+        handler: (data) => {
+          console.log("Order canceled:", data);
+          // Handle order canceled
+        },
+      },
+      {
+        event: "OrderCreated",
+        handler: (data) => {
+          console.log("Order created:", data);
+          // Handle order created
+        },
+      },
+      // Add more event handlers as needed
+    ],
+  });
 
-      const response = await api.post("/order-detail", formData);
-      const responseData = response.data;
-
-      setOrder(responseData.data);
-    } catch (error) {
-      setError("Error fetching order details");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Fetch order data
   useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const response = await api.post("/order-detail", { order_number });
+        setOrder(response.data.data);
+      } catch (error) {
+        setApiError("Error fetching order details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (order_number) {
       fetchOrders();
     }
   }, [order_number]);
 
+  // Data transformation functions
   const orderData = order
     ? [
         { key: "Order Number", value: order.order_display_id },
@@ -159,6 +187,47 @@ const Page: React.FC<PageProps> = ({ params }) => {
       ]
     : [];
 
+  // Handler functions
+  const handleSubmit = async () => {
+    setSubmitLoading(true);
+    try {
+      const response = await api.post("/order-manager/reportOrder", {
+        order_number: order?.order_number,
+        order_remarks: orderRemarks,
+      });
+
+      if (response.data.success) {
+        toast({
+          className: cn("bg-green-500 text-white"),
+          title: "Success",
+          description: response.data.message,
+        });
+        setShowRemarksModal(false);
+        setRefreshTable(true);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Submission failed.",
+          description: response.data.message || "Failed to submit request.",
+        });
+      }
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title: "Submission failed.",
+        description:
+          err.response?.data?.message ||
+          "There was a problem with your request.",
+      });
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleCancelRequest = () => {
+    setShowRemarksModal(false);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -175,54 +244,13 @@ const Page: React.FC<PageProps> = ({ params }) => {
     );
   }
 
-  const handleClick = () => {
-    setShowRemarksModal(true);
-  };
-
-  const handleSubmit = async () => {
-    setSubmitLoading(true); // Start loading
-    try {
-      const response = await api.post("/order-manager/reportOrder", {
-        order_number: order?.order_number, // Convert input string to float
-        order_remarks: orderRemarks, // Convert input string to float
-      });
-      const responseData = response.data;
-      // alert("Order cancellation submitted successfully.");
-      if (responseData.success == true) {
-        toast({
-          className: cn("bg-green-500 text-white"),
-          title: "Success",
-          description: responseData.message,
-          variant: "default",
-        });
-        setShowRemarksModal(false);
-        setRefreshTable(true); // Trigger table refresh
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Submission failed.",
-          description: responseData.message || "Failed to submit request.",
-        });
-        setSubmitLoading(false); // End loading
-      }
-    } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message || "There was a problem with your request.";
-      toast({
-        variant: "destructive",
-        title: "Submission failed.",
-        description: errorMessage,
-      });
-      setSubmitLoading(false); // End loading
-    }
-  };
-
-  const handleCancelRequest = () => {
-    setShowRemarksModal(false);
-  };
-
+  // Rest of the render logic remains the same...
   return (
     <div>
+      <div>
+        <p>Status: {isConnected ? "Connected" : "Disconnected"}</p>
+        {error && <p>Error: {error}</p>}
+      </div>
       <div className="page-header flex justify-between">
         <h4 className="text-2xl text-black font-semibold">
           Order Details / {order_number}
@@ -238,13 +266,11 @@ const Page: React.FC<PageProps> = ({ params }) => {
               Completed
             </Button>
           ) : order?.delivery_status === 2 ? (
-            <Button className="bg-pink-500 text-white mr-2">
-              Un Assigned
-            </Button>
+            <Button className="bg-pink-500 text-white mr-2">Un Assigned</Button>
           ) : order?.delivery_status === 3 ? (
             <Button className="bg-blue-500 text-white mr-2">Assigned</Button>
           ) : (
-            ''
+            ""
           )}
 
           <Button variant="outline">

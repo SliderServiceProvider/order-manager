@@ -7,16 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MoreVertical, Search, Send, ArrowLeft } from "lucide-react";
 import api from "@/services/api";
-
-import * as Pusher from "pusher-js";
-window.Pusher = Pusher;
-
-import {
-  initializeWebSocket,
-  subscribeToChannel,
-  leaveChannel,
-} from "@/utils/websocket";
-import { useWebSocket } from "@/hooks/useWebSocket";
+import useWebSocket from "@/hooks/useWebSocket";
 
 type Message = {
   id: number;
@@ -55,11 +46,11 @@ export default function Chat() {
   const [drivers, setDrivers] = useState<ChatIndex[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestions[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const messagesCacheRef = useRef<{ [key: number]: Message[] }>({});
 
   const fetchDrivers = useCallback(async () => {
     try {
@@ -68,7 +59,6 @@ export default function Chat() {
       setDrivers(responseData.chatList);
     } catch (error) {
       console.error("Error fetching drivers:", error);
-      setError("Failed to fetch drivers. Please try again.");
     }
   }, []);
 
@@ -83,16 +73,23 @@ export default function Chat() {
   const fetchMessages = useCallback(
     async (driverId: number, orderNumber: number) => {
       setLoading(true);
-      setError(null);
       try {
+        // Check if we have cached messages for this driver
+        if (messagesCacheRef.current[driverId]) {
+          setMessages(messagesCacheRef.current[driverId]);
+          setLoading(false);
+          return;
+        }
         const response = await api.get(
           `/order-manager/chat/messages?order_number=${orderNumber}`
         );
-        setMessages(response.data.chat);
+        const fetchedMessages = response.data.chat;
+        // Update cache and state
+        messagesCacheRef.current[driverId] = fetchedMessages;
+        setMessages(fetchedMessages);
         setSuggestions(response.data.messageSuggestions);
       } catch (error) {
         console.error("Error fetching messages:", error);
-        setError("Failed to fetch messages. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -104,27 +101,35 @@ export default function Chat() {
     if (!selectedDriver || !message.trim()) return;
 
     setLoading(true);
-    setError(null);
     try {
       const response = await api.post("/chat/send-message", {
         order_id: selectedDriver.order_id,
         message: message,
         receiver_id: selectedDriver.driver.id,
       });
+
+      const newMessage = response.data.data;
+
+      // Immediately update the UI with the sent message
+      if (selectedDriver.id) {
+        messagesCacheRef.current[selectedDriver.id] = [
+          ...(messagesCacheRef.current[selectedDriver.id] || []),
+          newMessage,
+        ];
+      }
+
       setMessages((prevMessages) => {
-        const updatedMessages = [...prevMessages, response.data.data];
-        // Scroll to bottom after state update
+        const updatedMessages = [...prevMessages, newMessage];
         setTimeout(() => {
           messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
         }, 0);
         return updatedMessages;
       });
+
       setMessage("");
-      // Focus the input field after sending a message
       inputRef.current?.focus();
     } catch (error) {
       console.error("Error sending message:", error);
-      setError("Failed to send message. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -141,10 +146,6 @@ export default function Chat() {
     setMessage(suggestion);
   };
 
-
-  useEffect(() => {
-    initializeWebSocket();
-  }, []);
 
   useEffect(() => {
     const scrollToBottom = () => {
@@ -189,21 +190,30 @@ export default function Chat() {
 
   const handleNewMessage = useCallback(
     (data: { message: Message }) => {
-      setMessages((prevMessages) => {
-        const updatedMessages = [...prevMessages, data.message];
-        // Scroll to bottom after state update
-        setTimeout(() => {
-          messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        }, 0);
-        return updatedMessages;
-      });
+      const newMessage = data.message;
 
-      // Only play sound for messages not sent by the current user
-      if (data.message.sender_type !== "user") {
+      // Only process the message if it's from the driver (not from the current user)
+      if (newMessage.sender_type !== "user") {
+        // Update both cache and state
+        if (selectedDriver?.id) {
+          messagesCacheRef.current[selectedDriver.id] = [
+            ...(messagesCacheRef.current[selectedDriver.id] || []),
+            newMessage,
+          ];
+        }
+
+        setMessages((prevMessages) => {
+          const updatedMessages = [...prevMessages, newMessage];
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 0);
+          return updatedMessages;
+        });
+
         playNotificationSound();
       }
     },
-    [playNotificationSound]
+    [selectedDriver, playNotificationSound]
   );
 
   const renderDriverList = () => (
@@ -334,30 +344,26 @@ export default function Chat() {
 
   const orderId = selectedDriver?.order_id;
 
-  const isConnected = useWebSocket(`chat.${orderId}`, "NewMessage");
+  // WebSocket Connection
+  const { isConnected, error } = useWebSocket({
+    channelName: `private-chat.${orderId}`,
+    events: [
+      {
+        event: "NewMessage",
+        handler: (data) => {
+          console.log("Received message data:", data);
+          // Extract the message object from the response
+          const message = data.message;
 
-  useEffect(() => {
-    if (isConnected) {
-      console.log("WebSocket is connected");
-      try {
-        // For private channels
-        subscribeToChannel(`private-chat.${orderId}`, ".NewMessage", (data) => {
-          handleNewMessage(data);
-        });
-        
-      } catch (error) {
-        console.error("❌ Error in subscribing to channel:", error);
+          // Check if it's from the driver
+          if (message && message.sender_type === "driver") {
+            handleNewMessage(data);
+          }
+        },
       }
-      // Cleanup function
-      return () => {
-        try {
-          leaveChannel(`chat.${orderId}`);
-        } catch (error) {
-          console.error("❌ Error in leaving channel:", error);
-        }
-      };
-    }
-  }, [isConnected, orderId, handleNewMessage]);
+      // Add more event handlers as needed
+    ],
+  });
 
   return (
     <div className="flex h-screen bg-white">

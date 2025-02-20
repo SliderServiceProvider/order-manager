@@ -1,21 +1,19 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useAppSelector, useAuth } from "@/hooks/useAuth";
 import { KpiSummarySection } from "@/components/dashboard/KpiSummarySection";
 import { RecentTransactionsSection } from "@/components/dashboard/RecentTransactionsSection";
 import { RecentOrdersSection } from "@/components/dashboard/RecentOrdersSection";
 import api from "@/services/api";
-import { log } from "console";
 import Head from "next/head";
 import WarningModal from "@/components/invoice-warning/WarningModal";
 import { Button } from "@/components/ui/button";
 import DataExport from "@/components/dashboard/DataExport";
 
-// Define your data types
+// Types remain the same...
 interface DataType {
   id: number;
   name: string;
-  // ... other fields
 }
 
 interface OrderData {
@@ -35,19 +33,22 @@ interface OrderRowProps {
   order_status: string;
   order_time: string;
 }
+
 interface InvoiceReminder {
   type: string;
   message: string;
 }
+
 export default function DashboardPage(): JSX.Element {
+  // Auth and user states
   const isInvoiceUser = useAppSelector(
     (state) => state.auth.user?.isInvoiceUser
-  ); // Access isInvoiceUser from Redux state
+  );
   const isAuthenticated = useAuth();
-  const [data, setData] = useState<DataType[]>([]);
+
+  // Dashboard states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [isAccountLocked, setIsAccountLocked] = useState(false);
   const [invoiceReminder, setInvoiceReminder] =
     useState<InvoiceReminder | null>(null);
@@ -57,17 +58,25 @@ export default function DashboardPage(): JSX.Element {
   const [recentOrders, setRecentOrders] = useState<OrderRowProps[]>([]);
   const [brandsData, setBrandsData] = useState([]);
   const [locationsData, setLocationsData] = useState([]);
-  // Fetch data function
+
+  // WebSocket states and refs
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const [wsStatus, setWsStatus] = useState({
+    isConnected: false,
+    error: null as string | null,
+    lastMessage: null as any,
+  });
+
+  // Fetch dashboard data
   const fetchData = async () => {
     try {
       setLoading(true);
       const response = await api.get("/order-manager/dashboardAnalytics");
-
-      const data = await response.data;
+      const data = response.data;
 
       setIsAccountLocked(data.data.isAccountLocked);
       setInvoiceReminder(data.data.invoice_reminder);
-
       setKpiSummary(data.data.kpiSummary);
       setRecentTransactions(data.data.recentTransactions);
       setRecentOrders(data.data.recentOrders);
@@ -75,9 +84,7 @@ export default function DashboardPage(): JSX.Element {
       setLocationsData(data.data.getLocations);
       setError(null);
 
-      if (data.data.isAccountLocked) {
-        setOpen(true);
-      } else if (data.data.invoice_reminder) {
+      if (data.data.isAccountLocked || data.data.invoice_reminder) {
         setOpen(true);
       }
     } catch (err) {
@@ -87,28 +94,29 @@ export default function DashboardPage(): JSX.Element {
     }
   };
 
-  // Fetch data on component mount
+  // Initial data fetch
   useEffect(() => {
     if (isAuthenticated) {
       fetchData();
     }
   }, [isAuthenticated]);
 
+  // Modal handling
   useEffect(() => {
-    if (isAccountLocked) {
-      setOpen(true); // Open modal if account is locked
-    } else if (invoiceReminder) {
-      setOpen(true); // Open modal if there's an invoice reminder
+    if (isAccountLocked || invoiceReminder) {
+      setOpen(true);
     }
   }, [isAccountLocked, invoiceReminder]);
 
   return (
     <>
       <div className="mx-auto space-y-6">
+       
+        {/* Rest of the dashboard components */}
         {kpiSummary ? (
           <KpiSummarySection kpiSummary={kpiSummary} />
         ) : (
-          <div>Loading KPI Summary...</div> // Optional loading message
+          <div>Loading KPI Summary...</div>
         )}
 
         {isInvoiceUser && (
@@ -119,7 +127,7 @@ export default function DashboardPage(): JSX.Element {
                   recentTransactions={recentTransactions}
                 />
               ) : (
-                <div>Loading recentTransactions Summary...</div> // Optional loading message
+                <div>Loading recentTransactions Summary...</div>
               )}
             </div>
             <div className="col-span-4">
@@ -140,14 +148,14 @@ export default function DashboardPage(): JSX.Element {
               <RecentOrdersSection orders={recentOrders} />
             )}
           </div>
-          {!isInvoiceUser && ( // Show DataExport only if invoiceOrder exists
+          {!isInvoiceUser && (
             <div className="col-span-4">
               <DataExport />
             </div>
           )}
         </div>
       </div>
-      {/* Invoice Reminder Modal */}
+
       <WarningModal
         open={open}
         onOpenChange={setOpen}
