@@ -41,7 +41,7 @@ const useWebSocket = ({
 
   const WEBSOCKET_URL = `${process.env.NEXT_PUBLIC_WEBSOCKET_URL}`;
   const AUTH_TOKEN =
-    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vMTkyLjE2OC4xLjY4OjgwMDAvYXBpL3YxL2F1dGgvbG9naW4iLCJpYXQiOjE3NDAwNDI0ODEsImV4cCI6MTc0MjYzNDQ4MSwibmJmIjoxNzQwMDQyNDgxLCJqdGkiOiJXT0h0blhSb1dRYkp0RmNkIiwic3ViIjoiMTMyNCIsInBydiI6IjkxOWMzMjZkNDNhYjE1MTlhOGJhM2I4NTg2YjY4NzUyZThjODM4MDcifQ.a_oERYaneeHJRo7VKh50cSSNWJpjGEjxGrQJlQCp9ys";
+    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL2FwaS1zYW5kYm94LnNsaWRlci1hcHAuY29tL2FwaS92MS9hdXRoL2xvZ2luIiwiaWF0IjoxNzQwMDgzMjkyLCJleHAiOjE3NDI2NzUyOTIsIm5iZiI6MTc0MDA4MzI5MiwianRpIjoicUxzSDM0SDZoMGhwa0ZZNSIsInN1YiI6IjEzMjQiLCJwcnYiOiI5MTljMzI2ZDQzYWIxNTE5YThiYTNiODU4NmI2ODc1MmU4YzgzODA3In0.lE5Mw3AfzMgWWi6pKnOmX15Xn_BtxlOhtmn-JG9Gj7M";
 
   // Helper function to safely parse JSON string data
   const safeJsonParse = (data: string) => {
@@ -185,7 +185,7 @@ const useWebSocket = ({
         if (!mountedRef.current) return;
 
         console.log(`WebSocket closed with code ${event.code}`);
-        setWsState((prev) => ({ ...prev, isConnected: false }));
+        // setWsState((prev) => ({ ...prev, isConnected: false }));
 
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           const delay =
@@ -199,11 +199,11 @@ const useWebSocket = ({
             }
           }, delay);
         } else {
-          setWsState((prev) => ({
-            ...prev,
-            error:
-              "Max reconnection attempts reached. Please refresh the page.",
-          }));
+        //   setWsState((prev) => ({
+        //     ...prev,
+        //     error:
+        //       "Max reconnection attempts reached. Please refresh the page.",
+        //   }));
         }
       };
 
