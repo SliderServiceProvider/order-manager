@@ -59,15 +59,6 @@ export default function DashboardPage(): JSX.Element {
   const [brandsData, setBrandsData] = useState([]);
   const [locationsData, setLocationsData] = useState([]);
 
-  // WebSocket states and refs
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const [wsStatus, setWsStatus] = useState({
-    isConnected: false,
-    error: null as string | null,
-    lastMessage: null as any,
-  });
-
   // Fetch dashboard data
   const fetchData = async () => {
     try {

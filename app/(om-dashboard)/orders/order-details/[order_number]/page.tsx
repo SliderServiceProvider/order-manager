@@ -79,10 +79,6 @@ interface DriverDetails {
   image_url: string | null;
 }
 
-// WebSocket configuration
-const WEBSOCKET_URL = "ws://192.168.1.68:8080/app/cjqj3woudzi1bdnbvsss";
-const RECONNECT_DELAY = 3000;
-
 const Page: React.FC<PageProps> = ({ params }) => {
   const unwrappedParams = use(params);
   const { order_number } = unwrappedParams;
@@ -99,28 +95,6 @@ const Page: React.FC<PageProps> = ({ params }) => {
 
   // Derive orderId from order state
   const orderId = order?.id ? `${order.id}` : "23403";
-
-  // WebSocket Connection
-  const { isConnected, error } = useWebSocket({
-    channelName: `private-order_canceled.${orderId}`,
-    events: [
-      {
-        event: "OrderCanceled",
-        handler: (data) => {
-          console.log("Order canceled:", data);
-          // Handle order canceled
-        },
-      },
-      {
-        event: "OrderCreated",
-        handler: (data) => {
-          console.log("Order created:", data);
-          // Handle order created
-        },
-      },
-      // Add more event handlers as needed
-    ],
-  });
 
   // Fetch order data
   useEffect(() => {
@@ -236,21 +210,12 @@ const Page: React.FC<PageProps> = ({ params }) => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p className="text-red-500">{error}</p>
-      </div>
-    );
-  }
+  
 
   // Rest of the render logic remains the same...
   return (
     <div>
-      <div>
-        <p>Status: {isConnected ? "Connected" : "Disconnected"}</p>
-        {error && <p>Error: {error}</p>}
-      </div>
+     
       <div className="page-header flex justify-between">
         <h4 className="text-2xl text-black font-semibold">
           Order Details / {order_number}
