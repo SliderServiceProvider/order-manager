@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   IconPackage,
   IconTruck,
@@ -80,6 +81,7 @@ export default function OrderCard({
   order: Order;
   onRefresh: () => void;
 }) {
+  const router = useRouter();
   const [showCancelForm, setShowCancelForm] = useState(false); // State to toggle cancel form
   const [reasons, setReasons] = useState<Reason[]>([]); // State for reasons
   const [selectedReason, setSelectedReason] = useState(""); // Selected dropdown value
@@ -299,12 +301,27 @@ export default function OrderCard({
               <>
                 {order.order_rating === null ? (
                   // Show feedback button when no rating exists
-                  <Button
-                    className="bg-blue-500"
-                    onClick={() => setShowFeedbackForm(true)}
-                  >
-                    Leave Feedback
-                  </Button>
+                  <>
+                    <Button
+                      className="bg-blue-500 text-white"
+                      onClick={() => setShowFeedbackForm(true)}
+                    >
+                      Leave Feedback
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        // Save the order data (or just the fields you need) to localStorage
+                        localStorage.setItem(
+                          "prefillOrderData",
+                          JSON.stringify(order)
+                        );
+                        // Navigate to the order form page
+                         router.push(`/place-order`);
+                      }}
+                    >
+                      Order Again
+                    </Button>
+                  </>
                 ) : (
                   // Optional: Display feedback value (remove this block if not needed)
                   <div className="feedback_info_rep">
@@ -349,7 +366,7 @@ export default function OrderCard({
           order.order_status !== "Canceled" && (
             <Button
               type="button"
-              className="bg-red-500"
+              className="bg-red-500 text-white"
               onClick={(e) => {
                 e.preventDefault();
                 fetchReasons(); // Fetch reasons on opening cancel form
@@ -428,7 +445,10 @@ export default function OrderCard({
                 >
                   Cancel
                 </Button>
-                <Button className="bg-red-500" onClick={handleSubmit}>
+                <Button
+                  className="bg-red-500 text-white"
+                  onClick={handleSubmit}
+                >
                   Confirm Cancel
                 </Button>
               </div>

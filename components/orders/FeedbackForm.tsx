@@ -62,7 +62,7 @@ export default function FeedbackForm({
       ></textarea>
       {/* Action Buttons */}
       <div className="flex justify-end mt-4 gap-4">
-        <Button variant="outline" onClick={onClose}>
+        <Button variant="outline" onClick={onClose} className="text-white">
           Cancel
         </Button>
         <Button className="bg-black text-white" onClick={handleSubmit}>

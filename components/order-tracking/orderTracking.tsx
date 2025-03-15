@@ -1,6 +1,6 @@
 import { Order } from "@/types";
 import { DeliveryTimeline } from "./DeliveryTimeLine";
-import { DeliveryMap } from "./DeliveryMap";
+import MapRoute from "./MapRoute";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface OrderTrackingProps {
@@ -23,11 +23,11 @@ export function OrderTracking({ order }: OrderTrackingProps) {
           <CardTitle>Delivery Map</CardTitle>
         </CardHeader>
         <CardContent>
-          <DeliveryMap
+          {/* <DeliveryMap
             pickupLocation={order.pickupLocation}
             dropoffLocation={order.dropoffLocation}
             driverLocation={order.driverLocation}
-          />
+          /> */}
         </CardContent>
       </Card>
     </div>

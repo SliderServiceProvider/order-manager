@@ -1,12 +1,18 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { MapPin, Package, CreditCard } from "lucide-react";
+import type React from "react";
+
+import { useState, useRef, useEffect } from "react";
+import {
+  MapPin,
+  Package,
+  CreditCard,
+  Check,
+  ChevronsUpDown,
+} from "lucide-react";
 import {
   GoogleMap,
-  Marker,
-  DirectionsRenderer,
-  Libraries,
+  type Libraries,
   useLoadScript,
 } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
@@ -18,61 +24,64 @@ import Autocomplete from "@/components/googlemap/AutoComplete";
 import api from "@/services/api";
 import { DateTimePicker } from "@/components/place-order/DateTimePicker";
 import { format } from "date-fns";
-import { getCurrentLocation } from "@/utils/locationHelper";
 import RouteMap from "@/components/googlemap/RouteMap";
 import Loader from "@/components/place-order/Loader";
-import { flushSync } from "react-dom";
-
-import { toast, useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
-import {
-  IconCreditCard,
-  IconCreditCardPay,
-  IconCurrencyDirham,
-  IconWallet,
-} from "@tabler/icons-react";
+import { useToast } from "@/hooks/use-toast";
+import { IconCreditCardPay, IconWallet } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
 import { OrderStatusModal } from "@/components/place-order/OrderStatusModal";
-// Import the custom hook to access Redux state and dispatch
 import { useAppSelector } from "@/hooks/useAuth";
 import WarningModal from "../invoice-warning/WarningModal";
-import StripeWrapper from "../stripe/StripeWrapper";
 import StripeWrapperForOrder, {
-  StripePaymentRef,
+  type StripePaymentRef,
 } from "./StripeWrapperForOrder";
 import { useStripe } from "@stripe/react-stripe-js";
-import { log } from "node:console";
+import { Checkbox } from "../ui/checkbox";
+import { cn } from "@/lib/utils";
 
+// --- Types ---
 type Location = {
   lat: number;
   lng: number;
 };
 
 type AddressData = {
+  id?: number;
   address: string;
   building: string;
   directions: string;
-  receiver_phone_number: string;
-  cod_amount: number;
   location: Location;
+  is_primary?: boolean;
+  nick_name?: string;
+  receiver_phone_number?: string;
+  cod_amount?: number | null;
 };
 
 type PackageData = {
   vehicle_type: number;
-  receiver_phone_number: string;
   tip: number;
   order_reference_number: string;
-  order_reference_number_two: string;
-  cod_amount: number;
 };
 
 type FormData = {
   pickup: AddressData;
-  dropoff: AddressData;
-  dropoffTwo: AddressData;
+  dropoffs: AddressData[];
   package: PackageData;
-  payment?: any; // Add if `payment` has a specific structure, otherwise use `any`
 };
 
 interface Locations {
@@ -85,119 +94,155 @@ interface VehicleProp {
   id: number;
   title: string;
   package_name: string;
-  icon: icon;
+  icon: { original_image: string };
   delivery_fee: string;
-  order_cost: string;
   is_available: boolean;
 }
-interface icon {
-  original_image: string;
-}
+
 interface SavedCardProp {
   id: number;
   payment_method_id: string;
   brand: string;
   card_last_four_digit: number;
 }
+
 interface InvoiceReminder {
   type: string;
   message: string;
 }
-// Define types for prefix groups
+
 type PrefixGroup = {
   prefixes: string[];
   length: number;
 };
 
-// Initial Form Data with Explicit Type
-const initialFormData: FormData = {
-  pickup: {
-    address: "",
-    building: "",
-    directions: "",
-    receiver_phone_number: "",
-    cod_amount: 0,
-    location: { lat: 24.4539, lng: 54.3773 }, // Default to Abu Dhabi
-  },
-  dropoff: {
-    address: "",
-    building: "",
-    directions: "",
-    receiver_phone_number: "",
-    cod_amount: 0,
-    location: { lat: 24.4539, lng: 54.3773 },
-  },
-  dropoffTwo: {
-    address: "",
-    building: "",
-    directions: "",
-    receiver_phone_number: "",
-    cod_amount: 0,
-    location: { lat: 24.4539, lng: 54.3773 },
-  },
-  package: {
-    vehicle_type: 0,
-    receiver_phone_number: "",
-    tip: 0,
-    order_reference_number: "",
-    order_reference_number_two: "",
-    cod_amount: 0,
-  },
-};
-
-export default function OrderFormBulk({
-  deliveryType,
-}: {
-  deliveryType: string;
-}) {
-  const userId = useAppSelector((state) => state.auth.user?.id); // Access user name from Redux state
+// --- Component ---
+export default function OrderForm({ deliveryType }: { deliveryType: string }) {
+  const userId = useAppSelector((state) => state.auth.user?.id);
   const router = useRouter();
   const stripeFormRef = useRef<StripePaymentRef>(null);
   const stripe = useStripe();
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  const [loading, setLoading] = useState(true);
   const [loadingPackageScreen, setLoadingPackageScreen] = useState(false);
-  const [location, setLocation] = useState(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
-  const [clearInputTrigger, setClearInputTrigger] = useState(false);
-  const [pasteLocationInput, setPasteLocationInput] = useState("");
   const [isAccountLocked, setIsAccountLocked] = useState(false);
   const [isInvoiceUser, setIsInvoiceUser] = useState(false);
   const [invoiceReminder, setInvoiceReminder] =
     useState<InvoiceReminder | null>(null);
-  const [address, setAddress] = useState<string | null>(null);
   const [savedCards, setSavedCards] = useState<SavedCardProp[]>([]);
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [primaryAddress, setPrimaryAddress] = useState(null);
   const [loadingVehicles, setLoadingVehicles] = useState(false);
   const [vehicles, setVehicles] = useState<VehicleProp[]>([]);
+
+  // Saved addresses for pickup (assumed to be used for both if needed)
+  const [pickupAddresses, setPickupAddresses] = useState<AddressData[]>([]);
+  const [clearInputTrigger, setClearInputTrigger] = useState(false);
+
+  // For pickup combobox
+  const [savedAddressOpenPickup, setSavedAddressOpenPickup] = useState(false);
+  const [savedAddressQueryPickup, setSavedAddressQueryPickup] = useState("");
+  const [selectedPickupSavedAddress, setSelectedPickupSavedAddress] =
+    useState<AddressData | null>(null);
+
+  // For dropoff combobox
+  const [savedAddressOpenDropoff, setSavedAddressOpenDropoff] = useState(false);
+  const [savedAddressQueryDropoff, setSavedAddressQueryDropoff] = useState("");
+  const [selectedDropoffSavedAddress, setSelectedDropoffSavedAddress] =
+    useState<AddressData | null>(null);
+
+  // Dynamic form state
+  const [formData, setFormData] = useState<FormData>({
+    pickup: {
+      address: "",
+      building: "",
+      directions: "",
+      location: { lat: 24.4539, lng: 54.3773 },
+    },
+    dropoffs: [
+      {
+        address: "",
+        building: "",
+        directions: "",
+        receiver_phone_number: "",
+        cod_amount: null,
+        location: { lat: 24.4539, lng: 54.3773 },
+      },
+    ],
+    package: {
+      vehicle_type: 0,
+      tip: 0,
+      order_reference_number: "",
+    },
+  });
+
+  const [currentDropoffIndex, setCurrentDropoffIndex] = useState(0);
+
+  const addDropoffAddress = () => {
+    setFormData((prev) => ({
+      ...prev,
+      dropoffs: [
+        ...prev.dropoffs,
+        {
+          address: "",
+          building: "",
+          directions: "",
+          receiver_phone_number: "",
+          cod_amount: null,
+          location: { lat: 24.4539, lng: 54.3773 },
+        },
+      ],
+    }));
+    setCurrentDropoffIndex(formData.dropoffs.length);
+  };
+
+  const removeDropoffAddress = (index: number) => {
+    if (formData.dropoffs.length <= 1) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must have at least one drop-off address.",
+      });
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      dropoffs: prev.dropoffs.filter((_, i) => i !== index),
+    }));
+
+    if (currentDropoffIndex >= index) {
+      setCurrentDropoffIndex(Math.max(0, currentDropoffIndex - 1));
+    }
+  };
+
+  // Separate states for "save address" and nicknames
+  const [savePickupAddress, setSavePickupAddress] = useState(false);
+  const [pickupNickname, setPickupNickname] = useState("");
+  const [saveDropoffAddress, setSaveDropoffAddress] = useState(false);
+  const [dropoffNickname, setDropoffNickname] = useState("");
+
+  const [pasteLocationInput, setPasteLocationInput] = useState("");
+
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleProp | null>(
     null
   );
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [orderCost, setOrderCost] = useState(0);
-  const [orderPaymentMethod, setOrderPaymentMethod] = useState<number | null>(
-    null
-  );
+  const [orderPaymentMethod, setOrderPaymentMethod] = useState<
+    number | string | null
+  >(null);
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
 
-  // Reference to the map instance
   const mapRef = useRef<google.maps.Map | null>(null);
   const [mapIsMoving, setMapIsMoving] = useState(false);
-
   const [distance, setDistance] = useState<number | null>(null);
   const [duration, setDuration] = useState<number | null>(null);
-
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedTip, setSelectedTip] = useState<number | "custom">(0);
   const [customTip, setCustomTip] = useState<string>("");
-  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
-
-  const shouldGeocode = useRef(true); // To prevent unnecessary geocoding
-  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [currentStep, setCurrentStep] = useState(1);
+  const shouldGeocode = useRef(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [orderStatus, setOrderStatus] = useState<
@@ -207,26 +252,7 @@ export default function OrderFormBulk({
   const [open, setOpen] = useState(false);
   const [responseMessage, setResponseMessage] = useState<string | null>(null);
 
-  // Mock getCurrentLocation function (replace with your actual implementation)
-  const getCurrentLocation = useCallback(
-    async (
-      setFormData: React.Dispatch<React.SetStateAction<FormData>>,
-      locationType: string
-    ) => {
-      // Implement your current location fetching logic here
-      // This is a placeholder implementation
-      setFormData((prev) => ({
-        ...prev,
-        [locationType]: {
-          ...prev[locationType as keyof FormData],
-          location: { lat: 24.4539, lng: 54.3773 },
-        },
-      }));
-    },
-    []
-  );
-
-  // Function to check if the phone number starts with a valid mobile network code
+  // --- Helpers ---
   const startsWithValidMobileNetworkCode = (number: string): boolean => {
     const validCodes = [
       "02",
@@ -247,50 +273,26 @@ export default function OrderFormBulk({
     return validCodes.some((code) => number.startsWith(code));
   };
 
-  // Function to check if the phone number starts with a valid mobile network code
   const validatePhoneNumber = (
     phoneNumber: string
   ): { isValid: boolean; error?: string } => {
-    // Remove any whitespace
     const number = phoneNumber.trim();
-
-    // Validation groups with their expected lengths
     const validationGroups: PrefixGroup[] = [
-      {
-        prefixes: ["02", "03", "04", "06", "07", "08", "09"],
-        length: 9,
-      },
+      { prefixes: ["02", "03", "04", "06", "07", "08", "09"], length: 9 },
       {
         prefixes: ["050", "052", "054", "055", "056", "057", "058"],
         length: 10,
       },
     ];
-
-    // Check if empty
-    if (!number) {
-      return {
-        isValid: false,
-        error: "Please enter a recipient number.",
-      };
-    }
-
-    // Check if starts with 0
-    if (!number.startsWith("0")) {
-      return {
-        isValid: false,
-        error: "Phone number must start with 0.",
-      };
-    }
-
-    // Check if it's a valid number (only digits)
-    if (!/^\d+$/.test(number)) {
+    if (!number)
+      return { isValid: false, error: "Please enter a recipient number." };
+    if (!number.startsWith("0"))
+      return { isValid: false, error: "Phone number must start with 0." };
+    if (!/^\d+$/.test(number))
       return {
         isValid: false,
         error: "Phone number must contain only digits.",
       };
-    }
-
-    // Check against validation groups
     for (const group of validationGroups) {
       if (group.prefixes.some((prefix) => number.startsWith(prefix))) {
         if (number.length !== group.length) {
@@ -302,76 +304,193 @@ export default function OrderFormBulk({
         return { isValid: true };
       }
     }
-
     return {
       isValid: false,
       error: "Invalid phone number. Please enter a valid phone number.",
     };
   };
 
-  const fetchPrimaryAddress = useCallback(async () => {
-    setLoading(true);
+  // Transform API address object to our AddressData type
+  const transformAddress = (addr: any): AddressData => ({
+    id: addr.id,
+    nick_name: addr.nick_name,
+    address: addr.address,
+    building: addr.flat_no,
+    directions: addr.direction || "",
+    location: {
+      lat: Number.parseFloat(addr.lat),
+      lng: Number.parseFloat(addr.lng),
+    },
+    is_primary: addr.is_primary === 1,
+  });
 
+  // --- Fetch Addresses ---
+  const fetchAddresses = async () => {
+    setLoading(true);
     try {
       const response = await api.get("/order-manager/getPrimaryAddress");
       const data = response.data;
-
       setIsAccountLocked(data.isAccountLocked);
       setIsInvoiceUser(data.invoice_order);
       setInvoiceReminder(data.invoice_reminder);
-      setSavedCards(data.userSavedCards);
+      // Set saved cards if any
+      // (Assuming data.userSavedCards is returned)
+      // setSavedCards(data.userSavedCards);
 
-      if (data.isAccountLocked) {
-        setOpen(true);
-      } else if (data.invoice_reminder) {
-        setOpen(true);
-      }
+      if (data.isAccountLocked || data.invoice_reminder) setOpen(true);
 
-      if (data?.address) {
-        // Update the form data with the primary address
-        setFormData((prev) => ({
-          ...prev,
-          pickup: {
-            ...prev.pickup,
-            address: data.address.address,
-            building: data.address.flat_no,
-            directions: data.address.direction,
-            location: {
-              lat: data.address.latitude,
-              lng: data.address.longitude,
+      if (data?.addresses && Array.isArray(data.addresses)) {
+        const transformedAddresses = data.addresses.map(transformAddress);
+        setPickupAddresses(transformedAddresses);
+        const primaryAddress = transformedAddresses.find(
+          (address: AddressData) => address.is_primary === true
+        );
+        if (primaryAddress) {
+          setFormData((prev) => ({
+            ...prev,
+            pickup: {
+              ...prev.pickup,
+              address: primaryAddress.address,
+              building: primaryAddress.building,
+              directions: primaryAddress.directions,
+              location: {
+                lat: primaryAddress.location.lat,
+                lng: primaryAddress.location.lng,
+              },
             },
-          },
-        }));
+          }));
+        } else {
+          // Replace these lines:
+          // await getCurrentLocation(setFormData, "pickup")
+
+          // With this implementation:
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              async (position) => {
+                const coordinates = {
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude,
+                };
+
+                try {
+                  const geocoder = new google.maps.Geocoder();
+                  const result = await geocoder.geocode({
+                    location: coordinates,
+                  });
+                  const address =
+                    result.results?.[0]?.formatted_address ||
+                    "Unknown Location";
+
+                  setFormData((prev) => ({
+                    ...prev,
+                    pickup: {
+                      ...prev.pickup,
+                      address: address,
+                      location: coordinates,
+                    },
+                  }));
+                } catch (error) {
+                  console.error("Error getting location:", error);
+                }
+              },
+              (error) => {
+                console.error("Error getting current position:", error);
+              }
+            );
+          }
+        }
       } else {
-        // Fallback to fetching the current location
-        await getCurrentLocation(setFormData, "pickup");
+        // Replace these lines:
+        // await getCurrentLocation(setFormData, "pickup")
+
+        // With this implementation:
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const coordinates = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+              };
+
+              try {
+                const geocoder = new google.maps.Geocoder();
+                const result = await geocoder.geocode({
+                  location: coordinates,
+                });
+                const address =
+                  result.results?.[0]?.formatted_address || "Unknown Location";
+
+                setFormData((prev) => ({
+                  ...prev,
+                  pickup: {
+                    ...prev.pickup,
+                    address: address,
+                    location: coordinates,
+                  },
+                }));
+              } catch (error) {
+                console.error("Error getting location:", error);
+              }
+            },
+            (error) => {
+              console.error("Error getting current position:", error);
+            }
+          );
+        }
       }
     } catch (error) {
-      console.error("Error fetching primary address:", error);
-      // Fallback to fetching the current location in case of an error
-      await getCurrentLocation(setFormData, "pickup");
+      console.error("Error fetching addresses:", error);
+      // Replace these lines:
+      // await getCurrentLocation(setFormData, "pickup")
+
+      // With this implementation:
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const coordinates = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            };
+
+            try {
+              const geocoder = new google.maps.Geocoder();
+              const result = await geocoder.geocode({ location: coordinates });
+              const address =
+                result.results?.[0]?.formatted_address || "Unknown Location";
+
+              setFormData((prev) => ({
+                ...prev,
+                pickup: {
+                  ...prev.pickup,
+                  address: address,
+                  location: coordinates,
+                },
+              }));
+            } catch (error) {
+              console.error("Error getting location:", error);
+            }
+          },
+          (error) => {
+            console.error("Error getting current position:", error);
+          }
+        );
+      }
     } finally {
       setLoading(false);
     }
-  }, [getCurrentLocation, invoiceReminder, setFormData]);
+  };
 
   useEffect(() => {
-    fetchPrimaryAddress();
-  }, [fetchPrimaryAddress]);
+    fetchAddresses();
+  }, []);
 
   useEffect(() => {
-    if (isAccountLocked) {
-      setOpen(true); // Open modal if account is locked
-    } else if (invoiceReminder) {
-      setOpen(true); // Open modal if there's an invoice reminder
-    }
+    if (isAccountLocked || invoiceReminder) setOpen(true);
   }, [isAccountLocked, invoiceReminder]);
 
   const googleMapAPIKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-  // Define libraries array outside component to prevent unnecessary re-renders
   const libraries: Libraries = ["places"];
-  // Load script in the parent
-  const { isLoaded, loadError } = useLoadScript({
+  const { isLoaded } = useLoadScript({
     googleMapsApiKey: googleMapAPIKey,
     libraries: libraries,
   });
@@ -379,20 +498,13 @@ export default function OrderFormBulk({
   const baseSteps = [
     { id: 1, name: "Pickup Address", icon: MapPin },
     { id: 2, name: "Drop Off Address", icon: MapPin },
+    { id: 3, name: "Package Details", icon: Package },
   ];
-
-  // Add Drop Off Address Two step if deliveryType is "bulk"
-  if (deliveryType === "bulk") {
-    baseSteps.push({ id: 3, name: "Drop Off Address Two", icon: MapPin });
-  }
-
-  baseSteps.push({ id: 4, name: "Package", icon: Package });
-
   const steps = isInvoiceUser
     ? baseSteps
-    : [...baseSteps, { id: 5, name: "Payment", icon: CreditCard }];
+    : [...baseSteps, { id: 4, name: "Payment", icon: CreditCard }];
 
-  let debounceTimeout: NodeJS.Timeout | null = null;
+  const debounceTimeout: NodeJS.Timeout | null = null;
 
   const handleLocationSelectNew = (location: Locations | null) => {
     if (!location) {
@@ -400,134 +512,69 @@ export default function OrderFormBulk({
       return;
     }
 
-    // const type = currentStep === 1 ? "pickup" : "dropoff";
-
-    let type: "pickup" | "dropoff" | "dropoffTwo" | "package" | "payment";
     if (currentStep === 1) {
-      type = "pickup";
-    } else if (currentStep === 2) {
-      type = "dropoff";
-    } else if (currentStep === 3) {
-      type = "dropoffTwo";
-    } else if (currentStep === 4) {
-      type = "package";
-    } else if (currentStep === 5) {
-      type = "payment";
+      setFormData((prev) => ({
+        ...prev,
+        pickup: {
+          ...prev.pickup,
+          address: location.description,
+          location: location.coordinates,
+        },
+      }));
     } else {
-      console.warn("Invalid step for location selection");
-      return;
+      setFormData((prev) => {
+        const updatedDropoffs = [...prev.dropoffs];
+        updatedDropoffs[currentDropoffIndex] = {
+          ...updatedDropoffs[currentDropoffIndex],
+          address: location.description,
+          location: location.coordinates,
+        };
+        return {
+          ...prev,
+          dropoffs: updatedDropoffs,
+        };
+      });
     }
-
-    setFormData((prev) => ({
-      ...prev,
-      [type]: {
-        ...prev[type],
-        address: location.description,
-        location: location.coordinates,
-      },
-    }));
   };
 
   const handleNext = async () => {
-    let type: "pickup" | "dropoff" | "dropoffTwo" | "package" | "payment";
     if (currentStep === 1) {
-      type = "pickup";
+      // Validate pickup address
+      if (!formData.pickup.address.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Please select a pickup address before proceeding.",
+        });
+        return;
+      }
     } else if (currentStep === 2) {
-      type = "dropoff";
-    } else if (currentStep === 3) {
-      type = "dropoffTwo";
-    } else if (currentStep === 4) {
-      type = "package";
-    } else if (currentStep === 5) {
-      type = "payment";
-    } else {
-      console.warn("Invalid step for location selection");
-      return;
-    }
-
-    // Address and Building Validation for Pickup, Dropoff, and DropoffTwo
-    if (currentStep <= 3) {
-      if (!formData[type]?.address?.trim()) {
+      // Validate current dropoff address
+      const currentDropoff = formData.dropoffs[currentDropoffIndex];
+      if (!currentDropoff.address.trim()) {
         toast({
           variant: "destructive",
           title: "Submission failed",
-          description: `Please select a valid address for ${type}.`,
+          description: "Please select a drop-off address before proceeding.",
+        });
+        return;
+      }
+      if (!currentDropoff.building.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Please enter a valid building number for the drop-off.",
         });
         return;
       }
 
-      if (
-        (type === "dropoff" || type === "dropoffTwo") &&
-        !formData[type]?.building?.trim()
-      ) {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description: `Please enter a valid building number for ${type}.`,
-        });
-        return;
-      }
-    }
-
-    // Receiver Number and COD Amount Validation for Dropoff and DropoffTwo
-    if (type === "dropoff" || type === "dropoffTwo") {
-      const receiverPhoneNumber = formData[type]?.receiver_phone_number?.trim();
-      if (!receiverPhoneNumber) {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description: `Please enter a valid receiver number for ${type}.`,
-        });
-        return;
-      }
-
-      const validation = validatePhoneNumber(receiverPhoneNumber);
-
-      if (!validation.isValid) {
-        toast({
-          variant: "destructive",
-          title: "Submission failed",
-          description: validation.error,
-        });
-        return false;
-      }
-
-      const MAX_COD_AMOUNT = 400;
-
-      // If cod_amount is a string in your form data
-      if (formData[type]?.cod_amount) {
-        const codAmount = Number(formData[type].cod_amount);
-
-        // Check if it's not a valid number
-        if (isNaN(codAmount) || !Number.isInteger(codAmount)) {
-          toast({
-            variant: "destructive",
-            title: "Submission failed",
-            description: `Please enter a valid whole number for COD amount.`,
-          });
-          return;
-        }
-
-        // Check if it exceeds maximum
-        if (codAmount > MAX_COD_AMOUNT) {
-          toast({
-            variant: "destructive",
-            title: "Submission failed",
-            description: `The COD amount cannot exceed AED ${MAX_COD_AMOUNT}. Please enter a valid amount.`,
-          });
-          return;
-        }
-      }
-    }
-
-    if (currentStep === 3) {
+      // Only validate the current dropoff address since multi-dropoff is optional
       setLoadingPackageScreen(true);
       try {
-        await fetchVehicles(); // Perform async operation
+        await fetchVehicles();
       } catch (error) {}
     }
-
-    if ((currentStep as 1 | 2 | 3 | 4 | 5) === 4) {
+    if (currentStep === 3) {
       if (!selectedVehicle) {
         toast({
           variant: "destructive",
@@ -536,14 +583,44 @@ export default function OrderFormBulk({
         });
         return;
       }
-      // if (!formData.package.receiver_phone_number.trim()) {
-      //   toast({
-      //     variant: "destructive",
-      //     title: "Submission failed",
-      //     description: "Please enter a recipient number.",
-      //   });
-      //   return;
-      // }
+
+      // Check if any dropoff has a receiver phone number
+      const hasReceiverNumber = formData.dropoffs.some(
+        (dropoff) =>
+          dropoff.receiver_phone_number &&
+          dropoff.receiver_phone_number.trim() !== ""
+      );
+
+      if (!hasReceiverNumber) {
+        toast({
+          variant: "destructive",
+          title: "Submission failed",
+          description: "Please enter at least one receiver phone number.",
+        });
+        return;
+      }
+
+      // Validate the receiver phone number format
+      const dropoffsWithPhoneNumbers = formData.dropoffs.filter(
+        (dropoff) =>
+          dropoff.receiver_phone_number &&
+          dropoff.receiver_phone_number.trim() !== ""
+      );
+
+      for (const dropoff of dropoffsWithPhoneNumbers) {
+        const validation = validatePhoneNumber(
+          dropoff.receiver_phone_number || ""
+        );
+        if (!validation.isValid) {
+          toast({
+            variant: "destructive",
+            title: "Submission failed",
+            description: validation.error,
+          });
+          return;
+        }
+      }
+
       if (selectedDate && !selectedTime) {
         toast({
           variant: "destructive",
@@ -552,18 +629,47 @@ export default function OrderFormBulk({
         });
         return;
       }
+
+      // Check if any dropoff has a COD amount for COD deliveries
+      if (deliveryType === "cod") {
+        const hasCodAmount = formData.dropoffs.some(
+          (dropoff) =>
+            dropoff.cod_amount !== null && dropoff.cod_amount !== undefined
+        );
+
+        if (!hasCodAmount) {
+          toast({
+            variant: "destructive",
+            title: "Submission failed",
+            description:
+              "The valid COD amount is required for at least one dropoff.",
+          });
+          return;
+        }
+
+        const MAX_COD_AMOUNT = 400;
+        const exceedsCodLimit = formData.dropoffs.some(
+          (dropoff) =>
+            dropoff.cod_amount !== null &&
+            dropoff.cod_amount !== undefined &&
+            dropoff.cod_amount > MAX_COD_AMOUNT
+        );
+
+        if (exceedsCodLimit) {
+          toast({
+            variant: "destructive",
+            title: "Submission failed",
+            description: `The COD amount cannot exceed AED ${MAX_COD_AMOUNT}, Please enter a valid amount.`,
+          });
+          return;
+        }
+      }
     }
-    // Clear input field when moving to the next screen
     setPasteLocationInput("");
     if (currentStep < steps.length) {
-      setClearInputTrigger(true); // Trigger to clear input field
-
-      // Immediately reset the trigger to allow clearing in subsequent steps
-      setTimeout(() => {
-        setClearInputTrigger(false);
-      }, 0);
-
-      setCurrentStep((currentStep + 1) as 1 | 2 | 3 | 4 | 5); // Cast to match the type
+      setClearInputTrigger(true);
+      setTimeout(() => setClearInputTrigger(false), 0);
+      setCurrentStep(currentStep + 1);
     } else {
       if (!isInvoiceUser && !orderPaymentMethod) {
         toast({
@@ -578,71 +684,69 @@ export default function OrderFormBulk({
   };
 
   const handleBack = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1) as 1 | 2 | 3 | 4 | 5); // Cast the result
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
   const fetchVehicles = async () => {
     setLoading(true);
     try {
+      const locations = [
+        {
+          latitude: formData.pickup.location.lat,
+          longitude: formData.pickup.location.lng,
+        },
+        ...formData.dropoffs.map((dropoff) => ({
+          latitude: dropoff.location.lat,
+          longitude: dropoff.location.lng,
+        })),
+      ];
+
       const response = await api.post("/pickup-delivery/get-vehicles", {
-        service_type_id: 5,
-        locations: [
-          {
-            latitude: formData.pickup.location.lat,
-            longitude: formData.pickup.location.lng,
-          },
-          {
-            latitude: formData.dropoff.location.lat,
-            longitude: formData.dropoff.location.lng,
-          },
-          {
-            latitude: formData.dropoffTwo.location.lat,
-            longitude: formData.dropoffTwo.location.lng,
-          },
-        ],
+        service_type_id: deliveryType === "cod" ? 4 : 1,
+        locations: locations,
       });
       const data = response.data;
-      // Hide loader after async operation
       setLoadingPackageScreen(false);
       setVehicles(data.data.vehicles);
       setDistance(data.data.total_distance);
       setDuration(data.data.total_duration);
     } catch (error) {
-      console.error("Error fetching invoices:", error);
+      console.error("Error fetching vehicles:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const updateOrderCost = (fee: number, tip: number) => {
-    const totalCost = fee + tip;
-    setOrderCost(totalCost);
+    setOrderCost(fee + tip);
   };
 
   const handleVehicleSelect = (vehicle: VehicleProp) => {
     if (vehicle.is_available) {
-      const fee = parseFloat(vehicle.order_cost);
+      const fee = Number.parseFloat(vehicle.delivery_fee);
       setSelectedVehicle(vehicle);
       setDeliveryFee(fee);
       const tip =
         selectedTip === "custom"
-          ? parseFloat(customTip) || 0
-          : parseFloat(selectedTip.toString()) || 0; // Convert to string for consistency
+          ? Number.parseFloat(customTip) || 0
+          : Number.parseFloat(selectedTip.toString()) || 0;
       updateOrderCost(fee, tip);
     }
   };
 
   const calculateTotal = () => {
     const tip =
-      selectedTip === "custom" ? parseFloat(customTip) || 0 : selectedTip || 0;
-    return (deliveryFee + tip).toFixed(2); // Total including delivery fee and tip
+      selectedTip === "custom"
+        ? Number.parseFloat(customTip) || 0
+        : selectedTip || 0;
+    return (deliveryFee + tip).toFixed(2);
   };
 
   const handleTipSelect = (tip: number | "custom") => {
     setSelectedTip(tip);
     if (tip !== "custom") {
-      setCustomTip(""); // Clear custom input if selecting predefined tip
-      updateOrderCost(deliveryFee, tip); // Update order cost
+      setCustomTip("");
+      updateOrderCost(deliveryFee, tip);
     }
   };
 
@@ -650,8 +754,7 @@ export default function OrderFormBulk({
     const value = e.target.value;
     setCustomTip(value);
     setSelectedTip("custom");
-    const customTipValue = parseFloat(value) || 0;
-    updateOrderCost(deliveryFee, customTipValue); // Update order cost
+    updateOrderCost(deliveryFee, Number.parseFloat(value) || 0);
   };
 
   const amountInSubunits = Math.round(orderCost * 100);
@@ -661,13 +764,12 @@ export default function OrderFormBulk({
     setSelectedTime(time);
   };
 
-  // Handlers for setting payment methods
   const handlePayWithBalance = () => {
-    setOrderPaymentMethod(4); // 4 for "Pay with Balance"
+    setOrderPaymentMethod(4);
   };
 
   const handlePayWithCreditCard = () => {
-    setOrderPaymentMethod(3); // 3 for "Pay with Credit Cards"
+    setOrderPaymentMethod(3);
   };
 
   const handleSubmit = async () => {
@@ -676,18 +778,14 @@ export default function OrderFormBulk({
       setOrderStatus("loading");
       if (!isInvoiceUser) {
         if (orderPaymentMethod === 3) {
-          // Stripe Payment Validation Only for orderPaymentMethod === 3
           if (!stripe) {
             console.warn(
               "Stripe has not been initialized. Please try again later."
             );
-
             return;
           }
-
           const { isValid, paymentMethod } =
             (await stripeFormRef.current?.validatePayment()) || {};
-
           if (!isValid) {
             setResponseMessage(
               "Payment validation failed. Please check your card details."
@@ -695,17 +793,13 @@ export default function OrderFormBulk({
             setOrderStatus("error");
             return;
           }
-
-          // Prepare payload with the payment method
           const payload = prepareOrderPayload(paymentMethod);
           await submitOrder(payload);
         } else {
-          // Prepare payload for other payment methods
           const payload = prepareOrderPayload(null);
           await submitOrder(payload);
         }
       } else {
-        // Invoice user: No Stripe payment logic
         const payload = prepareOrderPayload(null);
         await submitOrder(payload);
       }
@@ -715,88 +809,75 @@ export default function OrderFormBulk({
           "An unexpected error occurred. Please try again."
       );
       setOrderStatus("error");
-      // Wait for 3 seconds before processing the result
-      setTimeout(() => {
-        setIsModalOpen(false);
-      }, 3000);
+      setTimeout(() => setIsModalOpen(false), 3000);
     }
   };
 
-  const prepareOrderPayload = (currentPaymentMethod: any) => ({
-    source: "order_manager",
-    business_customer: userId,
-    service_type_id: 5,
-    payment_type: isInvoiceUser ? 2 : 1,
-    vehicle_id: selectedVehicle?.id || null,
-    isVendorOrder: false, // Is this an order from a vendor client?
-    invoice_order: isInvoiceUser, // Is this an order from a vendor client?
-    schedule_time:
-      selectedDate && selectedTime
-        ? `${format(selectedDate, "yyyy-MM-dd")} ${selectedTime}`
-        : "",
-    tip: selectedTip === "custom" ? parseFloat(customTip) || 0 : selectedTip,
-    recipient_phone: formData.package?.receiver_phone_number || null,
-    order_reference_number: formData.package?.order_reference_number || null,
-    order_reference_number_two:
-      formData.package?.order_reference_number_two || null,
-    cod_amount: formData.package?.cod_amount || null,
-    distance: distance || 0,
-    duration: duration || 0,
-    payment_method: orderPaymentMethod,
-    paymentMethod:
-      orderPaymentMethod === 5 ? paymentMethod : currentPaymentMethod,
-    tasks: [
+  const prepareOrderPayload = (currentPaymentMethod: any) => {
+    const tasks = [
       {
         task_type_id: 1,
         address: formData.pickup.address,
         latitude: formData.pickup.location.lat,
         longitude: formData.pickup.location.lng,
         flat_no: formData.pickup.building,
-        direction: formData.pickup?.directions || "",
+        direction: formData.pickup.directions || "",
         receiver_phone_number: null,
         cod_amount: null,
+        save_address: savePickupAddress,
+        saved_address_nickname: savePickupAddress ? pickupNickname : null,
       },
-      {
+      ...formData.dropoffs.map((dropoff, index) => ({
         task_type_id: 2,
-        address: formData.dropoff.address,
-        latitude: formData.dropoff.location.lat,
-        longitude: formData.dropoff.location.lng,
-        flat_no: formData.dropoff.building,
-        direction: formData.dropoff?.directions || "",
-        receiver_phone_number: formData.dropoff?.receiver_phone_number,
-        cod_amount: formData.dropoff?.cod_amount || 0,
-      },
-      ...(deliveryType === "bulk"
-        ? [
-            {
-              task_type_id: 3,
-              address: formData.dropoffTwo.address,
-              latitude: formData.dropoffTwo.location.lat,
-              longitude: formData.dropoffTwo.location.lng,
-              flat_no: formData.dropoffTwo.building,
-              direction: formData.dropoffTwo.directions || "",
-              receiver_phone_number:
-                formData.dropoffTwo?.receiver_phone_number || null,
-              cod_amount: formData.dropoffTwo?.cod_amount || 0,
-            },
-          ]
-        : []),
-    ],
-  });
+        address: dropoff.address,
+        latitude: dropoff.location.lat,
+        longitude: dropoff.location.lng,
+        flat_no: dropoff.building,
+        direction: dropoff.directions || "",
+        receiver_phone_number: dropoff.receiver_phone_number || null,
+        cod_amount: dropoff.cod_amount || null,
+        save_address:
+          index === currentDropoffIndex ? saveDropoffAddress : false,
+        saved_address_nickname:
+          index === currentDropoffIndex && saveDropoffAddress
+            ? dropoffNickname
+            : null,
+      })),
+    ];
+
+    return {
+      source: "order_manager",
+      business_customer: userId,
+      service_type_id: deliveryType === "cod" ? 4 : 1,
+      payment_type: isInvoiceUser ? 2 : 1,
+      vehicle_id: selectedVehicle?.id || null,
+      isVendorOrder: false,
+      invoice_order: isInvoiceUser,
+      schedule_time:
+        selectedDate && selectedTime
+          ? `${format(selectedDate, "yyyy-MM-dd")} ${selectedTime}`
+          : "",
+      tip:
+        selectedTip === "custom"
+          ? Number.parseFloat(customTip) || 0
+          : selectedTip,
+      order_reference_number: formData.package.order_reference_number || null,
+      distance: distance || 0,
+      duration: duration || 0,
+      payment_method: orderPaymentMethod,
+      paymentMethod:
+        orderPaymentMethod === 5 ? paymentMethod : currentPaymentMethod,
+      tasks: tasks,
+    };
+  };
 
   const submitOrder = async (payload: Record<string, any>) => {
-    // console.log(payload);
-
-    // return;
     const response = await api.post("/order-manager/processOrder", payload);
-
     if (response.status === 200) {
       const orderNumber = response.data.data;
       setOrderNumber(orderNumber);
       setResponseMessage(response.data.message || "Order Placed Successfully!");
       setOrderStatus("success");
-
-      // Wait for 2 seconds before processing the result
       setTimeout(() => {
         setIsModalOpen(false);
         router.push(`/orders/order-details/${orderNumber}`);
@@ -808,47 +889,40 @@ export default function OrderFormBulk({
     }
   };
 
-  // Paste Map Link
   const handlePasteLocation: React.ClipboardEventHandler<
     HTMLInputElement
   > = async (e) => {
     const pastedData = e.clipboardData.getData("Text");
     console.log("[handlePasteLocation] Pasted data:", pastedData);
-
     const regex = /@([-0-9.]+),([-0-9.]+)/;
     const plusCodeRegex = /^[A-Z0-9]{4}\+[A-Z0-9]{2}(?: [\w\s]+)?$/;
     const shortLinkRegex = /^https:\/\/maps\.app\.goo\.gl\/.+$/;
-
     const match = pastedData.match(regex);
     const isPlusCode = plusCodeRegex.test(pastedData);
     const isShortLink = shortLinkRegex.test(pastedData);
-
-    // Determine the current location type dynamically
-    const type: "pickup" | "dropoff" | "dropoffTwo" =
-      currentStep === 1
-        ? "pickup"
-        : currentStep === 2
-        ? "dropoff"
-        : "dropoffTwo";
-
     if (match) {
-      const lat = parseFloat(match[1]);
-      const lng = parseFloat(match[2]);
-      const coordinates = { lat, lng };
-
-      await resolveLocationFromCoordinates(coordinates, type);
+      const lat = Number.parseFloat(match[1]);
+      const lng = Number.parseFloat(match[2]);
+      await resolveLocationFromCoordinates(
+        { lat, lng },
+        currentStep === 1 ? "pickup" : "dropoff"
+      );
     } else if (isPlusCode) {
-      await resolveLocationFromPlusCode(pastedData, type);
+      await resolveLocationFromPlusCode(
+        pastedData,
+        currentStep === 1 ? "pickup" : "dropoff"
+      );
     } else if (isShortLink) {
-      await resolveShortLink(pastedData, type);
-    } else {
-      console.warn("[handlePasteLocation] Invalid link format pasted.");
+      await resolveShortLink(
+        pastedData,
+        currentStep === 1 ? "pickup" : "dropoff"
+      );
     }
   };
 
   const resolveShortLink = async (
     shortLink: string,
-    type: "pickup" | "dropoff" | "dropoffTwo" // Allow dropoffTwo
+    type: "pickup" | "dropoff"
   ) => {
     try {
       const response = await fetch(shortLink, {
@@ -856,18 +930,14 @@ export default function OrderFormBulk({
         redirect: "follow",
       });
       const expandedUrl = response.url;
-
       const regex = /@([-0-9.]+),([-0-9.]+)/;
       const plusCodeRegex = /^[A-Z0-9]{4}\+[A-Z0-9]{2}(?: [\w\s]+)?$/;
-
       const match = expandedUrl.match(regex);
       const isPlusCode = plusCodeRegex.test(expandedUrl);
-
       if (match) {
-        const lat = parseFloat(match[1]);
-        const lng = parseFloat(match[2]);
-        const coordinates = { lat, lng };
-        await resolveLocationFromCoordinates(coordinates, type);
+        const lat = Number.parseFloat(match[1]);
+        const lng = Number.parseFloat(match[2]);
+        await resolveLocationFromCoordinates({ lat, lng }, type);
       } else if (isPlusCode) {
         await resolveLocationFromPlusCode(expandedUrl, type);
       } else {
@@ -882,38 +952,39 @@ export default function OrderFormBulk({
 
   const resolveLocationFromCoordinates = async (
     coordinates: Location,
-    type: "pickup" | "dropoff" | "dropoffTwo" // Allow dropoffTwo
+    type: "pickup" | "dropoff"
   ) => {
     try {
-      const geocoder = new window.google.maps.Geocoder();
+      const geocoder = new google.maps.Geocoder();
       const result = await geocoder.geocode({ location: coordinates });
+      if (result.results?.[0]) {
+        if (type === "pickup") {
+          setFormData((prev) => ({
+            ...prev,
+            pickup: {
+              ...prev.pickup,
+              address: result.results[0].formatted_address,
+              location: coordinates,
+            },
+          }));
+        } else {
+          setFormData((prev) => {
+            const updatedDropoffs = [...prev.dropoffs];
+            updatedDropoffs[currentDropoffIndex] = {
+              ...updatedDropoffs[currentDropoffIndex],
+              address: result.results[0].formatted_address,
+              location: coordinates,
+            };
+            return {
+              ...prev,
+              dropoffs: updatedDropoffs,
+            };
+          });
+        }
 
-      if (result && result.results?.[0]) {
-        const address = result.results[0].formatted_address;
-
-        // Log address for debugging
-        console.log(
-          "[resolveLocationFromCoordinates] Geocoded Address:",
-          address
-        );
-
-        setFormData((prev) => ({
-          ...prev,
-          [type]: {
-            ...prev[type],
-            address: address, // Ensure the address field updates
-            location: coordinates,
-          },
-        }));
-
-        // Ensure the map pans to the location after state update
         if (mapRef.current) {
           mapRef.current.panTo(coordinates);
         }
-      } else {
-        console.warn(
-          "[resolveLocationFromCoordinates] No valid address found."
-        );
       }
     } catch (error) {
       console.error("[resolveLocationFromCoordinates] Geocoding error:", error);
@@ -922,26 +993,38 @@ export default function OrderFormBulk({
 
   const resolveLocationFromPlusCode = async (
     plusCode: string,
-    type: "pickup" | "dropoff" | "dropoffTwo" // Allow dropoffTwo
+    type: "pickup" | "dropoff"
   ) => {
     try {
-      const geocoder = new window.google.maps.Geocoder();
+      const geocoder = new google.maps.Geocoder();
       const result = await geocoder.geocode({ address: plusCode });
-
       if (result.results?.[0]) {
         const location = result.results[0].geometry.location;
         const coordinates = { lat: location.lat(), lng: location.lng() };
+        if (type === "pickup") {
+          setFormData((prev) => ({
+            ...prev,
+            pickup: {
+              ...prev.pickup,
+              address: result.results[0].formatted_address,
+              location: coordinates,
+            },
+          }));
+        } else {
+          setFormData((prev) => {
+            const updatedDropoffs = [...prev.dropoffs];
+            updatedDropoffs[currentDropoffIndex] = {
+              ...updatedDropoffs[currentDropoffIndex],
+              address: result.results[0].formatted_address,
+              location: coordinates,
+            };
+            return {
+              ...prev,
+              dropoffs: updatedDropoffs,
+            };
+          });
+        }
 
-        setFormData((prev) => ({
-          ...prev,
-          [type]: {
-            ...prev[type],
-            address: result.results[0].formatted_address,
-            location: coordinates,
-          },
-        }));
-
-        // Center map on resolved coordinates
         if (mapRef.current) {
           mapRef.current.panTo(coordinates);
         }
@@ -955,271 +1038,620 @@ export default function OrderFormBulk({
     }
   };
 
+  const handleMapIdle = async (type: "pickup" | "dropoff") => {
+    if (!mapIsMoving) return;
+    if (mapRef.current) {
+      const center = mapRef.current.getCenter();
+      if (center) {
+        const newLocation = { lat: center.lat(), lng: center.lng() };
+
+        if (type === "pickup") {
+          setFormData((prev) => ({
+            ...prev,
+            pickup: {
+              ...prev.pickup,
+              location: newLocation,
+            },
+          }));
+        } else {
+          setFormData((prev) => {
+            const updatedDropoffs = [...prev.dropoffs];
+            updatedDropoffs[currentDropoffIndex] = {
+              ...updatedDropoffs[currentDropoffIndex],
+              location: newLocation,
+            };
+            return {
+              ...prev,
+              dropoffs: updatedDropoffs,
+            };
+          });
+        }
+
+        try {
+          const geocoder = new google.maps.Geocoder();
+          const result = await geocoder.geocode({
+            location: newLocation,
+          });
+          const address =
+            result.results?.[0]?.formatted_address || "Unknown Location";
+          console.log("Fetched address for new location:", address);
+
+          if (type === "pickup") {
+            setFormData((prev) => ({
+              ...prev,
+              pickup: {
+                ...prev.pickup,
+                address,
+              },
+            }));
+          } else {
+            setFormData((prev) => {
+              const updatedDropoffs = [...prev.dropoffs];
+              updatedDropoffs[currentDropoffIndex] = {
+                ...updatedDropoffs[currentDropoffIndex],
+                address,
+              };
+              return {
+                ...prev,
+                dropoffs: updatedDropoffs,
+              };
+            });
+          }
+        } catch (error) {
+          console.error("[handleMapIdle] Geocoding error:", error);
+        }
+      } else {
+        console.warn("Failed to get map center");
+      }
+    }
+    setMapIsMoving(false);
+  };
+
   const renderStep = () => {
     switch (currentStep) {
-      // Pickup, Dropoff, Dropoff Two
       case 1:
-      case 2:
-      case 3: {
-        const type =
-          currentStep === 1
-            ? "pickup"
-            : currentStep === 2
-            ? "dropoff"
-            : deliveryType === "bulk" && currentStep === 3
-            ? "dropoffTwo"
-            : "dropoff";
-
+      case 2: {
+        const type = currentStep === 1 ? "pickup" : "dropoff";
+        const currentDropoff = formData.dropoffs[currentDropoffIndex];
         const onLoad = (mapInstance: google.maps.Map) => {
           mapRef.current = mapInstance;
         };
 
-        const handleMapIdle = async (
-          type: "pickup" | "dropoff" | "dropoffTwo"
-        ) => {
-          if (!mapIsMoving) return;
-
-          if (mapRef.current) {
-            const center = mapRef.current.getCenter();
-            if (center) {
-              const newLocation = { lat: center.lat(), lng: center.lng() };
-
-              setFormData((prev) => ({
-                ...prev,
-                [type]: { ...prev[type], location: newLocation },
-              }));
-
-              try {
-                const geocoder = new window.google.maps.Geocoder();
-                const result = await geocoder.geocode({
-                  location: newLocation,
-                });
-                const address =
-                  result.results?.[0]?.formatted_address || "Unknown Location";
-
-                setFormData((prev) => ({
-                  ...prev,
-                  [type]: { ...prev[type], address },
-                }));
-              } catch (error) {
-                console.error("Geocoding error:", error);
-              }
-            }
-          }
-          setMapIsMoving(false);
-        };
-
         return (
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              {/* Address Input */}
-              <div className="space-y-2">
-                <Label htmlFor={`${type}-address`}>Address</Label>
-                <Input
-                  readOnly
-                  className="h-11"
-                  id={`${type}-address`}
-                  placeholder="Select location"
-                  value={formData[type].address}
-                />
-              </div>
+          <div>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                {currentStep === 2 && (
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium">
+                        Drop-off Addresses ({formData.dropoffs.length})
+                      </h3>
+                      <Button
+                        variant="outline"
+                        onClick={addDropoffAddress}
+                        className="flex items-center gap-1"
+                      >
+                        <span>Add Drop-off</span>
+                      </Button>
+                    </div>
 
-              {/* Building Input */}
-              <div className="space-y-2">
-                <Label htmlFor={`${type}-building`}>
-                  Flat / Building{" "}
-                  <span className="text-gray-500">(optional)</span>
-                </Label>
-                <Input
-                  className="h-11"
-                  id={`${type}-building`}
-                  placeholder="Enter building details"
-                  value={formData[type].building}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      [type]: { ...prev[type], building: e.target.value },
-                    }))
-                  }
-                />
-              </div>
-
-              {/* Directions Input */}
-              <div className="space-y-2">
-                <Label htmlFor={`${type}-directions`}>
-                  Directions <span className="text-gray-500">(optional)</span>
-                </Label>
-                <Textarea
-                  id={`${type}-directions`}
-                  placeholder="Enter directions"
-                  value={formData[type].directions || ""}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      [type]: { ...prev[type], directions: e.target.value },
-                    }))
-                  }
-                />
-              </div>
-              {/*  Receiver Number && Cod Amount */}
-              {(type === "dropoff" || type === "dropoffTwo") && (
-                <div className="flex gap-2 mt-4">
-                  {/* Receiver Number Input */}
-                  <div className="space-y-2 w-1/2">
-                    <Label htmlFor={`${type}-receiver_phone_number`}>
-                      Receiver Number
-                    </Label>
-                    <Input
-                      className="h-11"
-                      id={`${type}-receiver_phone_number`}
-                      placeholder="Required format 05XXXXXXXX"
-                      value={formData[type]?.receiver_phone_number || ""} // Ensure safety with optional chaining
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          [type]: {
-                            ...prev[type],
-                            receiver_phone_number: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-
-                  {/* COD Amount Input */}
-                  <div className="space-y-2 w-1/2">
-                    <Label htmlFor={`${type}-cod_amount`}>COD Amount</Label>
-                    <Input
-                      className="h-11"
-                      step="1"
-                      id={`${type}-cod_amount`}
-                      placeholder="Enter cod amount"
-                      value={formData[type]?.cod_amount || ""} // Ensure safety with optional chaining
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          [type]: {
-                            ...prev[type],
-                            cod_amount: e.target.value,
-                          },
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Additional Options */}
-              <div className="space-y-2">
-                <div className="py-2">
-                  <p className="text-gray-500 text-sm">
-                    Or you can update your location using one of the following
-                    options
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm">
-                    Locate Me:
-                    <span className="text-gray-500 ml-1">
-                      Click this option to automatically update your location to
-                      your current position
-                    </span>
-                  </p>
-                </div>
-                <Button
-                  className="bg-gray-100 text-black shadow-none border"
-                  onClick={() => {
-                    if (navigator.geolocation) {
-                      navigator.geolocation.getCurrentPosition(
-                        async (position) => {
-                          const coordinates = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude,
-                          };
-                          if (mapRef.current) {
-                            shouldGeocode.current = true;
-                            mapRef.current.panTo(coordinates);
-                            await resolveLocationFromCoordinates(
-                              coordinates,
-                              type
-                            );
-                            // Clear both the Autocomplete input and paste input
-                            setPasteLocationInput("");
-                            setClearInputTrigger(true); // Trigger Autocomplete to clear
-                            setTimeout(() => setClearInputTrigger(false), 0); // Reset trigger
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {formData.dropoffs.map((_, index) => (
+                        <Button
+                          key={index}
+                          variant={
+                            currentDropoffIndex === index
+                              ? "default"
+                              : "outline"
                           }
-                        },
-                        (error) =>
-                          console.error("Error getting location:", error)
-                      );
-                    }
-                  }}
-                >
-                  Locate Me
-                </Button>
-
-                <div>
-                  <Label className="text-sm">
-                    Paste Location Link:
-                    <span className="text-gray-500 ml-1">
-                      Copy the location link from Google Maps and paste it here
-                      to set your location manually.
-                    </span>
-                  </Label>
+                          size="sm"
+                          onClick={() => setCurrentDropoffIndex(index)}
+                          className="flex items-center gap-1"
+                        >
+                          <span>Address {index + 1}</span>
+                          {formData.dropoffs.length > 1 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeDropoffAddress(index);
+                              }}
+                              className="ml-1 text-red-500 hover:text-red-700"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-end justify-between gap-2">
+                  <div className="space-y-2 w-5/6">
+                    <Label htmlFor={`${type}-address`}>Address</Label>
+                    <Input
+                      className="h-11"
+                      readOnly
+                      id={`${type}-address`}
+                      placeholder="Select location"
+                      value={
+                        type === "pickup"
+                          ? formData[type].address
+                          : currentDropoff.address
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Popover
+                      open={
+                        type === "pickup"
+                          ? savedAddressOpenPickup
+                          : savedAddressOpenDropoff
+                      }
+                      onOpenChange={
+                        type === "pickup"
+                          ? setSavedAddressOpenPickup
+                          : setSavedAddressOpenDropoff
+                      }
+                    >
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="h-11"
+                          role="combobox"
+                          aria-expanded={
+                            type === "pickup"
+                              ? savedAddressOpenPickup
+                              : savedAddressOpenDropoff
+                          }
+                        >
+                          {type === "pickup"
+                            ? selectedPickupSavedAddress
+                              ? selectedPickupSavedAddress.nick_name
+                              : "Select Saved Address"
+                            : selectedDropoffSavedAddress
+                            ? selectedDropoffSavedAddress.nick_name
+                            : "Select Saved Address"}
+                          <ChevronsUpDown className="opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[200px] p-0">
+                        <Command>
+                          <CommandInput
+                            placeholder="Search saved address..."
+                            className="h-9"
+                            value={
+                              type === "pickup"
+                                ? savedAddressQueryPickup
+                                : savedAddressQueryDropoff
+                            }
+                            onValueChange={(value) =>
+                              type === "pickup"
+                                ? setSavedAddressQueryPickup(value)
+                                : setSavedAddressQueryDropoff(value)
+                            }
+                          />
+                          <CommandList>
+                            {((type === "pickup"
+                              ? savedAddressQueryPickup
+                              : savedAddressQueryDropoff) === ""
+                              ? pickupAddresses
+                              : pickupAddresses.filter((addr) => {
+                                  const nickname = addr.nick_name
+                                    ? addr.nick_name.toLowerCase()
+                                    : "";
+                                  const query = (
+                                    type === "pickup"
+                                      ? savedAddressQueryPickup
+                                      : savedAddressQueryDropoff
+                                  ).toLowerCase();
+                                  return nickname.includes(query);
+                                })
+                            ).length === 0 ? (
+                              <CommandEmpty>
+                                No saved addresses found.
+                              </CommandEmpty>
+                            ) : (
+                              <CommandGroup>
+                                {(type === "pickup"
+                                  ? savedAddressQueryPickup
+                                    ? pickupAddresses.filter(
+                                        (addr: AddressData) =>
+                                          (addr.nick_name ?? "")
+                                            .toLowerCase()
+                                            .includes(
+                                              savedAddressQueryPickup.toLowerCase()
+                                            )
+                                      )
+                                    : pickupAddresses
+                                  : savedAddressQueryDropoff
+                                  ? pickupAddresses.filter(
+                                      (addr: AddressData) =>
+                                        (addr.nick_name ?? "")
+                                          .toLowerCase()
+                                          .includes(
+                                            savedAddressQueryDropoff.toLowerCase()
+                                          )
+                                    )
+                                  : pickupAddresses
+                                ).map((addr: AddressData) => (
+                                  <CommandItem
+                                    key={addr.id}
+                                    onSelect={() => {
+                                      if (type === "pickup") {
+                                        setFormData((prev: any) => ({
+                                          ...prev,
+                                          pickup: {
+                                            ...prev.pickup,
+                                            address: addr.address,
+                                            building: addr.building,
+                                            directions: addr.directions,
+                                            location: addr.location,
+                                          },
+                                        }));
+                                        setSelectedPickupSavedAddress(addr);
+                                        setSavedAddressOpenPickup(false);
+                                        setSavedAddressQueryPickup("");
+                                      } else {
+                                        setFormData((prev: any) => {
+                                          const updatedDropoffs = [
+                                            ...prev.dropoffs,
+                                          ];
+                                          updatedDropoffs[currentDropoffIndex] =
+                                            {
+                                              ...updatedDropoffs[
+                                                currentDropoffIndex
+                                              ],
+                                              address: addr.address,
+                                              building: addr.building,
+                                              directions: addr.directions,
+                                              location: addr.location,
+                                            };
+                                          return {
+                                            ...prev,
+                                            dropoffs: updatedDropoffs,
+                                          };
+                                        });
+                                        setSelectedDropoffSavedAddress(addr);
+                                        setSavedAddressOpenDropoff(false);
+                                        setSavedAddressQueryDropoff("");
+                                      }
+                                    }}
+                                  >
+                                    {addr.nick_name}
+                                    <Check
+                                      className={cn(
+                                        "ml-auto",
+                                        (type === "pickup"
+                                          ? selectedPickupSavedAddress?.id
+                                          : selectedDropoffSavedAddress?.id) ===
+                                          addr.id
+                                          ? "opacity-100"
+                                          : "opacity-0"
+                                      )}
+                                    />
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <div className="space-y-2 hidden">
+                  <Label htmlFor={`${type}-latitude`}>Latitude</Label>
                   <Input
-                    type="text"
-                    placeholder="Enter or paste Google Maps link, Plus Code, or short link"
-                    className="h-11"
-                    value={pasteLocationInput} // Bind the value to state
-                    onChange={(e) => setPasteLocationInput(e.target.value)} // Update state on input change
-                    onPaste={handlePasteLocation}
+                    readOnly
+                    id={`${type}-latitude`}
+                    placeholder="Latitude"
+                    value={
+                      type === "pickup"
+                        ? formData[type].location.lat.toString()
+                        : currentDropoff.location.lat.toString()
+                    }
                   />
                 </div>
-              </div>
-            </div>
-
-            {/* Google Map */}
-            <div className="h-[550px] rounded-lg overflow-hidden relative">
-              {isLoaded ? (
-                <GoogleMap
-                  zoom={15}
-                  center={formData[type].location}
-                  mapContainerClassName="w-full h-full"
-                  onLoad={onLoad}
-                  onDragStart={() => setMapIsMoving(true)}
-                  onIdle={() => handleMapIdle(type)}
-                >
-                  {/* Fixed Marker */}
-                  <div
-                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-full z-10"
-                    style={{ pointerEvents: "none" }}
-                  >
-                    <img src="/marker-icon.png" alt="Marker" />
-                  </div>
-                </GoogleMap>
-              ) : (
-                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                  Loading map...
+                <div className="space-y-2 hidden">
+                  <Label htmlFor={`${type}-longitude`}>Longitude</Label>
+                  <Input
+                    readOnly
+                    id={`${type}-longitude`}
+                    placeholder="Longitude"
+                    value={
+                      type === "pickup"
+                        ? formData[type].location.lng.toString()
+                        : currentDropoff.location.lng.toString()
+                    }
+                  />
                 </div>
-              )}
-              <div className="absolute top-14 px-10 w-full z-50">
-                <Autocomplete
-                  isLoaded={isLoaded}
-                  onLocationSelect={handleLocationSelectNew}
-                  clearInputTrigger={clearInputTrigger}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor={`${type}-building`}>
+                    Flat / Building
+                    <span className="italic text-gray-500">(optional)</span>
+                  </Label>
+                  <Input
+                    className="h-11"
+                    id={`${type}-building`}
+                    placeholder="Enter building details"
+                    value={
+                      type === "pickup"
+                        ? formData[type].building
+                        : currentDropoff.building
+                    }
+                    onChange={(e) =>
+                      setFormData((prev) => {
+                        if (type === "pickup") {
+                          return {
+                            ...prev,
+                            [type]: { ...prev[type], building: e.target.value },
+                          };
+                        } else {
+                          const updatedDropoffs = [...prev.dropoffs];
+                          updatedDropoffs[currentDropoffIndex] = {
+                            ...updatedDropoffs[currentDropoffIndex],
+                            building: e.target.value,
+                          };
+                          return {
+                            ...prev,
+                            dropoffs: updatedDropoffs,
+                          };
+                        }
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={`${type}-directions`}>
+                    Directions
+                    <span className="italic text-gray-500">(optional)</span>
+                  </Label>
+                  <Textarea
+                    id={`${type}-directions`}
+                    placeholder="Enter directions"
+                    value={
+                      type === "pickup"
+                        ? formData[type]?.directions || ""
+                        : currentDropoff?.directions || ""
+                    }
+                    onChange={(e) =>
+                      setFormData((prev) => {
+                        if (type === "pickup") {
+                          return {
+                            ...prev,
+                            [type]: {
+                              ...prev[type],
+                              directions: e.target.value,
+                            },
+                          };
+                        } else {
+                          const updatedDropoffs = [...prev.dropoffs];
+                          updatedDropoffs[currentDropoffIndex] = {
+                            ...updatedDropoffs[currentDropoffIndex],
+                            directions: e.target.value,
+                          };
+                          return {
+                            ...prev,
+                            dropoffs: updatedDropoffs,
+                          };
+                        }
+                      })
+                    }
+                  />
+                </div>
+                {type === "dropoff" && (
+                  <div className="flex gap-2 mt-4">
+                    {/* Receiver Number Input */}
+                    <div className="space-y-2 w-1/2">
+                      <Label htmlFor={`${type}-receiver_phone_number`}>
+                        Receiver Number
+                      </Label>
+                      <Input
+                        className="h-11"
+                        id={`${type}-receiver_phone_number`}
+                        placeholder="Required format 05XXXXXXXX"
+                        value={currentDropoff.receiver_phone_number || ""}
+                        onChange={(e) =>
+                          setFormData((prev) => {
+                            const updatedDropoffs = [...prev.dropoffs];
+                            updatedDropoffs[currentDropoffIndex] = {
+                              ...updatedDropoffs[currentDropoffIndex],
+                              receiver_phone_number: e.target.value,
+                            };
+                            return {
+                              ...prev,
+                              dropoffs: updatedDropoffs,
+                            };
+                          })
+                        }
+                      />
+                    </div>
+
+                    {/* COD Amount Input */}
+                    {deliveryType === "cod" && (
+                      <div className="space-y-2 w-1/2">
+                        <Label htmlFor={`${type}-cod_amount`}>COD Amount</Label>
+                        <Input
+                          className="h-11"
+                          type="number"
+                          id={`${type}-cod_amount`}
+                          placeholder="Enter cod amount"
+                          value={currentDropoff.cod_amount?.toString() || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setFormData((prev) => {
+                              const updatedDropoffs = [...prev.dropoffs];
+                              updatedDropoffs[currentDropoffIndex] = {
+                                ...updatedDropoffs[currentDropoffIndex],
+                                cod_amount:
+                                  value === ""
+                                    ? null
+                                    : Number.parseFloat(value),
+                              };
+                              return {
+                                ...prev,
+                                dropoffs: updatedDropoffs,
+                              };
+                            });
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                <hr />
+                <div className="space-y-2">
+                  <div className="py-2">
+                    <p className="text-gray-500 text-sm">
+                      Or you can update your location using one of the following
+                      options
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm">
+                      Locate Me:
+                      <span className="text-gray-500 ml-1">
+                        Click this option to automatically update your location
+                        to your current position
+                      </span>
+                    </p>
+                  </div>
+                  <Button
+                    className="bg-gray-100 text-black shadow-none border"
+                    onClick={() => {
+                      if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          async (position) => {
+                            const coordinates = {
+                              lat: position.coords.latitude,
+                              lng: position.coords.longitude,
+                            };
+                            if (mapRef.current) {
+                              shouldGeocode.current = true;
+                              mapRef.current.panTo(coordinates);
+                              await resolveLocationFromCoordinates(
+                                coordinates,
+                                currentStep === 1 ? "pickup" : "dropoff"
+                              );
+                              setPasteLocationInput("");
+                              setClearInputTrigger(true);
+                              setTimeout(() => setClearInputTrigger(false), 0);
+                            }
+                          },
+                          (error) => {
+                            console.error("Error getting location:", error);
+                          }
+                        );
+                      }
+                    }}
+                  >
+                    Locate Me
+                  </Button>
+                  <div>
+                    <Label className="text-sm">
+                      Paste Location Link:
+                      <span className="text-gray-500 ml-1">
+                        Copy the location link from Google Maps and paste it
+                        here to set your location manually.
+                      </span>
+                    </Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter or paste Google Maps link, Plus Code, or short link"
+                      className="h-11"
+                      value={pasteLocationInput}
+                      onChange={(e) => setPasteLocationInput(e.target.value)}
+                      onPaste={handlePasteLocation}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2 w-1/2 mt-5">
+                    <Checkbox
+                      id={`save-${type}`}
+                      checked={
+                        type === "pickup"
+                          ? savePickupAddress
+                          : saveDropoffAddress
+                      }
+                      onCheckedChange={(checked) => {
+                        if (type === "pickup") {
+                          setSavePickupAddress(checked === true);
+                          if (!checked) setPickupNickname("");
+                        } else {
+                          setSaveDropoffAddress(checked === true);
+                          if (!checked) setDropoffNickname("");
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`save-${type}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Save address for future use
+                    </label>
+                  </div>
+                  {(type === "pickup"
+                    ? savePickupAddress
+                    : saveDropoffAddress) && (
+                    <div className="w-1/2">
+                      <Input
+                        value={
+                          type === "pickup" ? pickupNickname : dropoffNickname
+                        }
+                        onChange={(e) =>
+                          type === "pickup"
+                            ? setPickupNickname(e.target.value)
+                            : setDropoffNickname(e.target.value)
+                        }
+                        placeholder="Enter a nickname"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="h-[550px] rounded-lg overflow-hidden relative">
+                {isLoaded ? (
+                  <GoogleMap
+                    zoom={15}
+                    center={
+                      type === "pickup"
+                        ? formData[type].location
+                        : currentDropoff.location
+                    }
+                    mapContainerClassName="w-full h-full"
+                    onLoad={onLoad}
+                    onDragStart={() => setMapIsMoving(true)}
+                    onIdle={() => handleMapIdle(type)}
+                  ></GoogleMap>
+                ) : (
+                  <div className="w-full h-full bg-muted flex items-center justify-center">
+                    Loading map...
+                  </div>
+                )}
+                <div className="absolute top-14 px-10 w-full z-50">
+                  <Autocomplete
+                    isLoaded={isLoaded}
+                    onLocationSelect={handleLocationSelectNew}
+                    clearInputTrigger={clearInputTrigger}
+                  />
+                </div>
+                <div
+                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-full z-10"
+                  style={{ pointerEvents: "none" }}
+                >
+                  <img src="/marker-icon.png" alt="Marker" />
+                </div>
               </div>
             </div>
           </div>
         );
       }
-
-      // Package Step
-      case 4:
+      case 3:
         return (
           <>
-            {/* <Loader isVisible={loadingPackageScreen} /> */}
-
+            <Loader isVisible={loadingPackageScreen} />
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 {/* Package Details */}
@@ -1241,7 +1673,7 @@ export default function OrderFormBulk({
                           <button
                             key={vehicle.id}
                             onClick={() => handleVehicleSelect(vehicle)}
-                            className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg ${
+                            className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
                               vehicle.is_available
                                 ? ""
                                 : "opacity-50 cursor-not-allowed"
@@ -1256,7 +1688,8 @@ export default function OrderFormBulk({
                             <img
                               src={
                                 vehicle.icon.original_image ||
-                                "/default-vehicle-icon.png"
+                                "/default-vehicle-icon.png" ||
+                                "/placeholder.svg"
                               }
                               alt={vehicle.package_name}
                               className="h-10 mix-blend-multiply"
@@ -1266,7 +1699,7 @@ export default function OrderFormBulk({
                                 {vehicle.package_name}
                               </p>
                               <p className="text-sm font-medium">
-                                {vehicle.order_cost} AED
+                                {vehicle.delivery_fee} AED
                               </p>
                             </div>
                           </button>
@@ -1274,7 +1707,6 @@ export default function OrderFormBulk({
                       </div>
                     )}
                   </div>
-
                   <div className="space-y-2">
                     <Label>Tip</Label>
                     <div className="flex gap-4">
@@ -1309,7 +1741,7 @@ export default function OrderFormBulk({
                     </div>
                     <div className="flex items-center gap-2 mt-2">
                       <p className="text-sm text-muted-foreground">
-                        Selected Tip:
+                        Selected Tip:{" "}
                         {selectedTip === "custom"
                           ? customTip
                             ? `${customTip} AED`
@@ -1319,9 +1751,9 @@ export default function OrderFormBulk({
                       {selectedTip !== 0 && (
                         <button
                           onClick={() => {
-                            setSelectedTip(0); // Reset the selected tip
-                            setCustomTip(""); // Clear custom tip input
-                            updateOrderCost(deliveryFee, 0); // Update the order cost to exclude tip
+                            setSelectedTip(0);
+                            setCustomTip("");
+                            updateOrderCost(deliveryFee, 0);
                           }}
                           className="text-xs text-red-500 border border-red-500 rounded-lg px-2 py-1 hover:bg-red-100"
                         >
@@ -1330,60 +1762,27 @@ export default function OrderFormBulk({
                       )}
                     </div>
                   </div>
-
-                  {isInvoiceUser && (
-                    <div className="flex items-center gap-2">
-                      <div className="w-1/2">
-                        <Label htmlFor="order_reference_number">
-                          Order Reference Number 1
-                          <span className="italic text-gray-500">
-                            (optional)
-                          </span>
-                        </Label>
-                        <Input
-                          className="h-11"
-                          id="order_reference_number"
-                          placeholder="Enter order reference number"
-                          value={formData.package.order_reference_number || ""} // Controlled input
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              package: {
-                                ...prev.package,
-                                order_reference_number: e.target.value,
-                              },
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="w-1/2">
-                        <Label htmlFor="order_reference_number_two">
-                          Order Reference Number 2
-                          <span className="italic text-gray-500">
-                            (optional)
-                          </span>
-                        </Label>
-                        <Input
-                          className="h-11"
-                          id="order_reference_number_two"
-                          placeholder="Enter order reference number"
-                          value={
-                            formData.package.order_reference_number_two || ""
-                          } // Controlled input
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              package: {
-                                ...prev.package,
-                                order_reference_number_two: e.target.value,
-                              },
-                            }))
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-
+                  <div className="space-y-2">
+                    <Label htmlFor="order_reference_number">
+                      Order Reference Number{" "}
+                      <span className="italic text-gray-500">(optional)</span>
+                    </Label>
+                    <Input
+                      className="h-11"
+                      id="order_reference_number"
+                      placeholder="Enter order reference number"
+                      value={formData.package.order_reference_number || ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          package: {
+                            ...prev.package,
+                            order_reference_number: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
                   <div className="space-y-2">
                     <Label>Schedule Time</Label>
                     <DateTimePicker
@@ -1393,30 +1792,7 @@ export default function OrderFormBulk({
                       }}
                     />
                   </div>
-
-                  {deliveryType === "cod" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="cod_amount">COD Amount</Label>
-                      <Input
-                        className="h-11"
-                        id="cod_amount"
-                        placeholder="Enter cod amount"
-                        value={formData.package.cod_amount.toString() || ""}
-                        onChange={(e) => {
-                          const value = e.target.value; // Get the raw value
-                          setFormData((prev) => ({
-                            ...prev,
-                            package: {
-                              ...prev.package,
-                              cod_amount: value === "" ? 0 : parseFloat(value),
-                            },
-                          }));
-                        }}
-                      />
-                    </div>
-                  )}
                 </div>
-                {/* Display delivery summary */}
                 <div className="flex mt-10 gap-10">
                   <div className="flex gap-2">
                     <img
@@ -1468,20 +1844,14 @@ export default function OrderFormBulk({
                   </div>
                 </div>
               </div>
-              {/* Show Route */}
               <div>
                 {isLoaded &&
                 formData.pickup.location.lat &&
-                formData.dropoff.location.lat ? (
+                formData.dropoffs.length > 0 ? (
                   <RouteMap
                     isLoaded={isLoaded}
                     pickup={formData.pickup.location}
-                    dropoff={formData.dropoff.location}
-                    dropoffTwo={
-                      formData.dropoffTwo?.address?.trim() // Check if dropoffTwo has a valid address
-                        ? formData.dropoffTwo.location
-                        : null
-                    }
+                    dropoff={formData.dropoffs.map((d) => d.location)}
                   />
                 ) : (
                   <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center rounded-lg">
@@ -1492,13 +1862,10 @@ export default function OrderFormBulk({
             </div>
           </>
         );
-
-      // Payment Step
-      case 5:
+      case 4:
         return (
           <div className="w-1/2 space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 lg:justify-between">
-              {/* Render Saved Cards */}
               {savedCards.length > 0 && (
                 <>
                   {savedCards.map((card) => (
@@ -1509,8 +1876,8 @@ export default function OrderFormBulk({
                           "Selected Payment Method ID:",
                           card.payment_method_id
                         );
-                        setPaymentMethod(card.payment_method_id); // Set saved card
-                        setOrderPaymentMethod(5); // Set order payment method to 5
+                        setPaymentMethod(card.payment_method_id);
+                        setOrderPaymentMethod(5);
                       }}
                       className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
                         orderPaymentMethod === 5 &&
@@ -1530,12 +1897,10 @@ export default function OrderFormBulk({
                   ))}
                 </>
               )}
-
-              {/* Pay with Balance Button */}
               <button
                 onClick={() => {
-                  setOrderPaymentMethod(4); // Set orderPaymentMethod to 4 for Balance
-                  setPaymentMethod(null); // Clear saved card selection
+                  setOrderPaymentMethod(4);
+                  setPaymentMethod(null);
                 }}
                 className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
                   orderPaymentMethod === 4
@@ -1548,12 +1913,10 @@ export default function OrderFormBulk({
                   <p className="font-medium">Pay with Balance</p>
                 </div>
               </button>
-
-              {/* Add Card Button */}
               <button
                 onClick={() => {
-                  setOrderPaymentMethod(3); // Set orderPaymentMethod to 3 for Add Card
-                  setPaymentMethod(null); // Clear saved card selection
+                  setOrderPaymentMethod(3);
+                  setPaymentMethod(null);
                 }}
                 className={`flex items-center justify-center gap-5 py-4 border border-gray-100 text-left rounded-lg transition-colors ${
                   orderPaymentMethod === 3
@@ -1567,8 +1930,6 @@ export default function OrderFormBulk({
                 </div>
               </button>
             </div>
-
-            {/* Conditionally render Stripe Wrapper */}
             {orderPaymentMethod === 3 && (
               <div className="card-payment">
                 <StripeWrapperForOrder
@@ -1616,7 +1977,6 @@ export default function OrderFormBulk({
       <Card className="py-6">
         <CardContent>{renderStep()}</CardContent>
       </Card>
-
       <div className="flex gap-4">
         <Button
           className="bg-primary text-black w-[250px]"
@@ -1634,7 +1994,7 @@ export default function OrderFormBulk({
           onClick={handleNext}
           disabled={isAccountLocked}
         >
-          {currentStep === 5
+          {currentStep === 4
             ? `Place Order AED ${calculateTotal()}`
             : currentStep === steps.length
             ? "Place Order"
@@ -1648,7 +2008,6 @@ export default function OrderFormBulk({
         orderNumber={orderNumber}
         responseMessage={responseMessage}
       />
-      {/* Invoice Reminder Modal */}
       <WarningModal
         open={open}
         onOpenChange={setOpen}

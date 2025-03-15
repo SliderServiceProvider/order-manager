@@ -22,6 +22,7 @@ interface AddressCardProps {
   flat_no: string;
   direction: string;
   type_name: string;
+  nick_name: string;
 }
 
 export default function AddressCard() {
@@ -184,14 +185,18 @@ export default function AddressCard() {
                         ) : (
                           ""
                         )}
+                        <div>
+                          <span className="text-gray-500">Nick Name</span>
+                          <p>{address.nick_name}</p>
+                        </div>
                       </div>
                       <div>
                         <span className="text-gray-500">Address</span>
                         <p>{address.address}</p>
                       </div>
                     </div>
-                    <div className="flex lg:flex-col justify-end lg:justify-center flex-1 gap-2 mt-4">
-                      <Button variant="link" className="bg-black text-white">
+                    <div className="flex lg:flex-col justify-end lg:justify-center flex-1 gap-2">
+                      <Button variant="link" className="bg-gray-100 text-gray-700">
                         <Link href={`/addresses/edit-address/${address.id}`}>
                           Edit
                         </Link>
@@ -200,7 +205,7 @@ export default function AddressCard() {
                         <></>
                       ) : (
                         <Button
-                          className="text-white bg-green-500"
+                          className="text-white bg-emerald-500"
                           onClick={() => handleSetAsPrimaryClick(address.id)}
                         >
                           Set as Primary
@@ -208,7 +213,7 @@ export default function AddressCard() {
                       )}
 
                       <Button
-                        className="text-black"
+                        className=" bg-red-500"
                         onClick={() => handleDeleteClick(address.id)}
                       >
                         Delete
@@ -255,9 +260,7 @@ export default function AddressCard() {
           <DialogHeader>
             <DialogTitle>Confirm Updation</DialogTitle>
           </DialogHeader>
-          <p>
-            Are you sure you want to change this address as primary
-          </p>
+          <p>Are you sure you want to change this address as primary</p>
           <DialogFooter>
             <Button variant="outline" onClick={handleCancelForPrimary}>
               Cancel

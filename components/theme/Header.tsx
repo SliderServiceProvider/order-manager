@@ -61,59 +61,12 @@ export function Header({ setSidebarOpen }: HeaderProps) {
         {/* <h2 className="text-lg font-semibold lg:hidden uppercase">Slider Enterprise</h2> */}
       </div>
       <div className="flex items-center gap-5">
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger className="flex items-center gap-2 bg-primary p-2 rounded-lg">
-            <div className="flex items-center">
-              <IconCubePlus className="mr-2" />
-            </div>
+        <Link href="/place-order" className="bg-primary px-4 py-2 rounded-md">
+          <div className="flex items-center">
+            <IconCubePlus className="mr-2" />
             Place Order
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="text-center">
-                Select Delivery Type
-              </DialogTitle>
-              <DialogDescription>
-                <div className="grid grid-cols-3 gap-5 py-10">
-                  <div>
-                    <Link
-                      href="/place-order"
-                      className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
-                      onClick={handleLinkClick}
-                    >
-                      <img
-                        src="/delivery.png"
-                        alt="Delivery"
-                        className="h-20"
-                      />
-                      Deliver an Order
-                    </Link>
-                  </div>
-                  <div>
-                    <Link
-                      href="/place-order/cod"
-                      className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
-                      onClick={handleLinkClick}
-                    >
-                      <img src="/cod.png" alt="COD" className="h-20" />
-                      Deliver a COD Order
-                    </Link>
-                  </div>
-                  <div>
-                    <Link
-                      href="/place-order/bulk"
-                      className="flex flex-col items-center gap-2 hover:opacity-80 transition-opacity"
-                      onClick={handleLinkClick}
-                    >
-                      <img src="/bulk.png" alt="COD" className="h-20" />
-                      Bulk Order
-                    </Link>
-                  </div>
-                </div>
-              </DialogDescription>
-            </DialogHeader>
-          </DialogContent>
-        </Dialog>
+          </div>
+        </Link>
 
         {/* <DropdownMenu>
           <DropdownMenuTrigger asChild>

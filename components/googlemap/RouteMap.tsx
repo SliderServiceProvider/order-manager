@@ -1,89 +1,50 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { GoogleMap, Marker, DirectionsRenderer } from "@react-google-maps/api";
+"use client";
+
+import { useEffect, useState } from "react";
+import { GoogleMap, Marker } from "@react-google-maps/api";
 
 type Location = {
   lat: number;
   lng: number;
 };
 
-type RouteMapProps = {
-  isLoaded: boolean; // Receive `isLoaded` from the parent
+interface RouteMapProps {
+  isLoaded: boolean;
   pickup: Location;
-  dropoff: Location;
-  dropoffTwo?: Location | null; // New optional waypoint
-};
+  dropoff: Location | Location[];
+}
 
-const RouteMap: React.FC<RouteMapProps> = ({
-  isLoaded,
-  pickup,
-  dropoff,
-  dropoffTwo,
-}) => {
-  const [directions, setDirections] =
-    useState<google.maps.DirectionsResult | null>(null);
+export default function RouteMap({ isLoaded, pickup, dropoff }: RouteMapProps) {
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchDirections = useCallback(() => {
-    if (!window.google || !pickup.lat || !dropoff.lat) return;
-
-    const directionsService = new window.google.maps.DirectionsService();
-
-    // Define waypoints if `dropoffTwo` has values
-    const waypoints = dropoffTwo
-      ? [
-          {
-            location: { lat: dropoffTwo.lat, lng: dropoffTwo.lng },
-            stopover: true,
-          },
-        ]
-      : [];
-
-    directionsService.route(
-      {
-        origin: {
-          lat: pickup.lat,
-          lng: pickup.lng,
-        },
-        destination: {
-          lat: dropoff.lat,
-          lng: dropoff.lng,
-        },
-        waypoints: waypoints, // Add waypoints here
-        travelMode: window.google.maps.TravelMode.DRIVING,
-      },
-      (result, status) => {
-        if (status === window.google.maps.DirectionsStatus.OK && result) {
-          setDirections(result);
-        } else {
-          console.error("Directions request failed:", status);
-        }
-      }
-    );
-  }, [pickup, dropoff, dropoffTwo]);
-
-  useEffect(() => {
-    if (isLoaded) {
-      fetchDirections();
-    }
-  }, [isLoaded, fetchDirections]);
-
-  if (!isLoaded) return <div>Loading...</div>;
+  if (!isLoaded) return <div>Loading map...</div>;
 
   return (
-    <GoogleMap zoom={15} center={pickup} mapContainerClassName="w-full h-full">
-      <Marker position={pickup} />
-      {dropoffTwo && <Marker position={dropoffTwo} />}
-      <Marker position={dropoff} />
-      {directions && (
-        <DirectionsRenderer
-          directions={directions}
-          options={{
-            suppressMarkers: true,
-            polylineOptions: { strokeColor: "#000", strokeWeight: 5 },
-          }}
-        />
-      )}
-    </GoogleMap>
-  );
-};
+    <div className="h-[550px] rounded-lg overflow-hidden">
+      <GoogleMap
+        zoom={12}
+        center={pickup}
+        mapContainerClassName="w-full h-full"
+      >
+        <Marker position={pickup} label={{ text: "P", color: "white" }} />
+        {Array.isArray(dropoff) ? (
+          dropoff.map((loc, i) => (
+            <Marker
+              key={i}
+              position={loc}
+              label={{ text: `D${i + 1}`, color: "white" }}
+            />
+          ))
+        ) : (
+          <Marker position={dropoff} label={{ text: "D", color: "white" }} />
+        )}
 
-export default RouteMap;
+        {error && (
+          <div className="absolute top-0 left-0 right-0 bg-red-500 text-white p-2 text-center">
+            {error}
+          </div>
+        )}
+      </GoogleMap>
+    </div>
+  );
+}

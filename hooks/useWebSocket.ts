@@ -13,9 +13,6 @@ interface EventHandler {
 interface WebSocketOptions {
   channelName: string;
   events: EventHandler[];
-  maxReconnectAttempts?: number;
-  reconnectDelay?: number;
-  heartbeatInterval?: number;
 }
 
 /**
@@ -24,15 +21,8 @@ interface WebSocketOptions {
 const useWebSocket = ({
   channelName,
   events,
-  maxReconnectAttempts = 5,
-  reconnectDelay = 1000,
-  heartbeatInterval = 30000,
 }: WebSocketOptions): WebSocketState => {
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectAttemptsRef = useRef(0);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const heartbeatTimerRef = useRef<NodeJS.Timeout>();
-  const mountedRef = useRef(true);
 
   const [wsState, setWsState] = useState<WebSocketState>({
     isConnected: false,
@@ -40,8 +30,9 @@ const useWebSocket = ({
   });
 
   const WEBSOCKET_URL = `${process.env.NEXT_PUBLIC_WEBSOCKET_URL}`;
+  // const AUTH_TOKEN = localStorage.getItem("token");
   const AUTH_TOKEN =
-    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL2FwaS1zYW5kYm94LnNsaWRlci1hcHAuY29tL2FwaS92MS9hdXRoL2xvZ2luIiwiaWF0IjoxNzQwMDgzMjkyLCJleHAiOjE3NDI2NzUyOTIsIm5iZiI6MTc0MDA4MzI5MiwianRpIjoicUxzSDM0SDZoMGhwa0ZZNSIsInN1YiI6IjEzMjQiLCJwcnYiOiI5MTljMzI2ZDQzYWIxNTE5YThiYTNiODU4NmI2ODc1MmU4YzgzODA3In0.lE5Mw3AfzMgWWi6pKnOmX15Xn_BtxlOhtmn-JG9Gj7M";
+    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOi8vZHJpdmVyLWFwaS5sb2NhbDo4MDAwL2FwaS92MS9hdXRoL2xvZ2luIiwiaWF0IjoxNzQxNzcyOTg3LCJleHAiOjE3NDQzNjQ5ODcsIm5iZiI6MTc0MTc3Mjk4NywianRpIjoiME9oSnhuVnB4QmhldzUzRSIsInN1YiI6IjEzMjQiLCJwcnYiOiI5MTljMzI2ZDQzYWIxNTE5YThiYTNiODU4NmI2ODc1MmU4YzgzODA3In0.wxmU-MeFx_qwLk3PzGwOJUmg_MSnpYJiLz-RvVUkhm4";
 
   // Helper function to safely parse JSON string data
   const safeJsonParse = (data: string) => {
@@ -68,35 +59,11 @@ const useWebSocket = ({
     }
   };
 
-  const cleanupWebSocket = () => {
-    // Clear any pending timeouts
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = undefined;
-    }
-    if (heartbeatTimerRef.current) {
-      clearInterval(heartbeatTimerRef.current);
-      heartbeatTimerRef.current = undefined;
-    }
-
-    // Close WebSocket if it exists and is not already closed
-    if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
-      try {
-        wsRef.current.onclose = null; // Remove onclose handler to prevent reconnection
-        wsRef.current.onerror = null;
-        wsRef.current.onmessage = null;
-        wsRef.current.onopen = null;
-        wsRef.current.close();
-      } catch (error) {
-        console.error("Error closing WebSocket:", error);
-      }
-    }
-    wsRef.current = null;
-  };
-
   const connectWebSocket = () => {
     // Clean up existing connection first
-    cleanupWebSocket();
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
 
     try {
       console.log("Connecting to WebSocket...");
@@ -104,31 +71,32 @@ const useWebSocket = ({
       wsRef.current = ws;
 
       ws.onopen = () => {
-        if (!mountedRef.current) return;
-
         console.log("WebSocket connected");
-        reconnectAttemptsRef.current = 0;
         setWsState({ isConnected: true, error: null });
-
-        // Setup heartbeat only after successful connection
-        heartbeatTimerRef.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ event: "pusher:ping", data: {} }));
-          }
-        }, heartbeatInterval);
       };
 
       ws.onmessage = async (event) => {
-        if (!mountedRef.current) return;
-
         try {
           const data = JSON.parse(event.data);
+
+          // Respond to server pings to prevent disconnects
+          if (data.event === "pusher:ping") {
+            console.log("Received ping from server. Sending pong.");
+            ws.send(JSON.stringify({ event: "pusher:pong", data: {} }));
+            return;
+          }
+
+          // Handle pong response (optional)
+          if (data.type === "pong") {
+            console.log("Received heartbeat pong");
+            return;
+          }
 
           if (data.event === "pusher:connection_established") {
             const { socket_id } = JSON.parse(data.data);
             try {
               const response = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/broadcasting/auth`,
+                `${process.env.NEXT_PUBLIC_WSA_URL}/broadcasting/auth`,
                 {
                   method: "POST",
                   headers: {
@@ -141,11 +109,9 @@ const useWebSocket = ({
                   }),
                 }
               );
-
               if (!response.ok) {
                 throw new Error(`Auth failed with status: ${response.status}`);
               }
-
               const authData = await response.json();
               if (ws.readyState === WebSocket.OPEN) {
                 const subscribeMessage = {
@@ -167,13 +133,13 @@ const useWebSocket = ({
           } else {
             const eventHandler = events.find((e) => e.event === data.event);
             if (eventHandler) {
+              console.log(data.event);
               // Parse the data property if it's a string
               const eventData =
                 typeof data.data === "string"
                   ? safeJsonParse(data.data)
                   : data.data;
               eventHandler.handler(eventData || data);
-              //   eventHandler.handler(data.data);
             }
           }
         } catch (error) {
@@ -181,51 +147,35 @@ const useWebSocket = ({
         }
       };
 
-      ws.onclose = (event) => {
-        if (!mountedRef.current) return;
-
-        console.log(`WebSocket closed with code ${event.code}`);
-        // setWsState((prev) => ({ ...prev, isConnected: false }));
-
-        if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-          const delay =
-            reconnectDelay * Math.pow(2, reconnectAttemptsRef.current);
-          console.log(`Attempting to reconnect in ${delay / 1000} seconds...`);
-
-          reconnectTimeoutRef.current = setTimeout(() => {
-            if (mountedRef.current) {
-              reconnectAttemptsRef.current++;
-              connectWebSocket();
-            }
-          }, delay);
-        } else {
-        //   setWsState((prev) => ({
-        //     ...prev,
-        //     error:
-        //       "Max reconnection attempts reached. Please refresh the page.",
-        //   }));
-        }
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        setWsState((prev) => ({ ...prev, error: "WebSocket error occurred" }));
       };
 
-      ws.onerror = (error) => {
-        if (!mountedRef.current) return;
-        console.error("WebSocket error:", error);
-        // setWsState((prev) => ({ ...prev, error: "WebSocket error occurred" }));
+      ws.onclose = (event) => {
+        console.log(event);
+        console.log(
+          `WebSocket disconnected: code ${event.code}, reason: ${event.reason}`
+        );
+        setWsState((prev) => ({ ...prev, isConnected: false }));
       };
     } catch (error) {
       console.error("WebSocket setup error:", error);
-    //   setWsState((prev) => ({ ...prev, error: "Failed to setup WebSocket" }));
+      setWsState((prev) => ({ ...prev, error: "Failed to setup WebSocket" }));
     }
+
+    // Return cleanup function
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
   };
 
   useEffect(() => {
-    mountedRef.current = true;
-    connectWebSocket();
-
-    return () => {
-      mountedRef.current = false;
-      cleanupWebSocket();
-    };
+    const cleanup = connectWebSocket();
+    // Cleanup function for when the component unmounts or the dependencies change
+    return cleanup;
   }, [channelName]); // Reconnect if these dependencies change
 
   return wsState;
