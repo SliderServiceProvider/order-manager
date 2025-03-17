@@ -12,11 +12,14 @@ export function useHexMapping() {
     async function fetchHexMapping() {
       try {
         setHexLoading(true);
-        const res = await fetch("http://192.168.1.68:3001/api/hexMapping", {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          credentials: "omit",
-        });
+        const res = await fetch(
+          "https://insights.slider-app.com/api/hexMapping",
+          {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            credentials: "omit",
+          }
+        );
         console.log("Response from API:", res);
         if (!res.ok) {
           throw new Error(`Error fetching hexMapping: ${res.statusText}`);
