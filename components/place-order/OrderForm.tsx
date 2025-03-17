@@ -984,7 +984,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         direction: dropoff.directions || "",
         receiver_phone_number: dropoff.receiver_phone_number,
         cod_amount: dropoff.cod_amount,
-        order_reference_number: dropoff.order_reference_number,
+        order_reference_number: dropoff.order_reference_number || null, // Fixed line
         save_address:
           index === currentDropoffIndex ? saveDropoffAddress : false,
         saved_address_nickname:
