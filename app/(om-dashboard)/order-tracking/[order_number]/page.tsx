@@ -410,7 +410,6 @@ export default function TrackingPage({ params }: PageProps) {
                 )
               }
               orderRefNo={orderRefNo}
-              locationId={`LOC-${task.location.id}`}
               address={task.location.address}
               flatNo={task.location.flat_no}
               city={task.location.city}
