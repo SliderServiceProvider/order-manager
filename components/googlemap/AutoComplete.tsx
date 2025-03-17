@@ -64,17 +64,24 @@ export default function Autocomplete({
       const predictions = await new Promise<
         google.maps.places.AutocompletePrediction[]
       >((resolve, reject) => {
-        service.getPlacePredictions(request, (results, status) => {
-          if (
-            status === window.google.maps.places.PlacesServiceStatus.OK &&
-            results
-          ) {
-            resolve(results);
-          } else {
-            reject(new Error(status));
+        service.getPlacePredictions(
+          request,
+          (
+            results: google.maps.places.AutocompletePrediction[] | null,
+            status: google.maps.places.PlacesServiceStatus
+          ) => {
+            if (
+              status === window.google.maps.places.PlacesServiceStatus.OK &&
+              results
+            ) {
+              resolve(results);
+            } else {
+              reject(new Error(status));
+            }
           }
-        });
+        );
       });
+
 
       return predictions.map((prediction) => ({
         description: prediction.description,
@@ -97,15 +104,22 @@ export default function Autocomplete({
       const geocoder = new window.google.maps.Geocoder();
       const result = await new Promise<google.maps.GeocoderResult[]>(
         (resolve, reject) => {
-          geocoder.geocode({ placeId }, (results, status) => {
-            if (status === window.google.maps.GeocoderStatus.OK && results) {
-              resolve(results);
-            } else {
-              reject(new Error(status));
+          geocoder.geocode(
+            { placeId },
+            (
+              results: google.maps.GeocoderResult[] | null,
+              status: google.maps.GeocoderStatus
+            ) => {
+              if (status === window.google.maps.GeocoderStatus.OK && results) {
+                resolve(results);
+              } else {
+                reject(new Error(status));
+              }
             }
-          });
+          );
         }
       );
+
 
       if (result.length > 0) {
         const location = result[0].geometry.location;
