@@ -17,6 +17,7 @@ interface PageProps {
 
 interface AddressData {
   address: string;
+  nick_name: string|null;
   flat_no: string;
   type_name?: string;
   direction?: string;
@@ -73,11 +74,11 @@ const Page: React.FC<PageProps> = ({ params }) => {
           description: "Failed to update the address.",
         });
       }
-    } catch (error) {
+    } catch (error:any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "An error occurred during submission.",
+        description: error.message,
       });
     } finally {
       setIsSubmitting(false); // Stop loading
@@ -94,6 +95,7 @@ const Page: React.FC<PageProps> = ({ params }) => {
       </div>
       <AddressForm
         initialAddress={addressData.address}
+        initialNickName={addressData.nick_name}
         initialFlatNo={addressData.flat_no}
         initialDirection={addressData.direction}
         initialStreet={addressData.type_name}

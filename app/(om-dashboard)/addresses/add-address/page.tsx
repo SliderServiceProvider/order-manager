@@ -34,7 +34,7 @@ export default function Page() {
             responseData.message || "Failed to submit payout request.",
         });
       }
-    } catch (error) {
+    } catch (error:any) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -56,6 +56,7 @@ export default function Page() {
       {/* Address Form */}
       <AddressForm
         initialAddress="" // For creation, start with empty values
+        initialNickName=""
         initialFlatNo=""
         initialDirection=""
         initialStreet=""

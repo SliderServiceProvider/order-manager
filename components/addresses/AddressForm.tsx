@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
 import { Button } from "../ui/button";
@@ -8,7 +8,6 @@ import { Card, CardContent } from "../ui/card";
 import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import Autocomplete from "../googlemap/AutoComplete";
-
 import { GoogleMap, Libraries, useLoadScript } from "@react-google-maps/api";
 import { IconCurrentLocation } from "@tabler/icons-react";
 
@@ -34,9 +33,9 @@ interface AddressFormProps {
   initialStreet?: string;
   initialDirection?: string;
   initialCoordinates?: Coordinates;
-  initialNickName?: string;
+  initialNickName: string|null;
   isDefault: boolean;
-  onSubmit: (address: AddressFormData) => void;
+  onSubmit: (address: AddressFormData) => Promise<void>;
   isSubmitting: boolean;
 }
 
@@ -63,8 +62,35 @@ export default function AddressForm({
     direction: initialDirection || "",
     isDefault: isDefault,
     coordinates: initialCoordinates || DEFAULT_COORDINATES,
-    nick_name: initialNickName,
+    nick_name: initialNickName || "",
   });
+
+  // State to handle validation errors for specific fields
+  const [validationErrors, setValidationErrors] = useState<{
+    nick_name?: string;
+    flatNo?: string;
+  }>({});
+
+  // Sync form state when editing (if props change)
+  useEffect(() => {
+    setFormData({
+      address: initialAddress,
+      flatNo: initialFlatNo,
+      street: initialStreet || "",
+      direction: initialDirection || "",
+      isDefault: isDefault,
+      coordinates: initialCoordinates || DEFAULT_COORDINATES,
+      nick_name: initialNickName || "",
+    });
+  }, [
+    initialAddress,
+    initialFlatNo,
+    initialStreet,
+    initialDirection,
+    isDefault,
+    initialCoordinates,
+    initialNickName,
+  ]);
 
   const [mapIsMoving, setMapIsMoving] = useState(false);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -122,10 +148,7 @@ export default function AddressForm({
   };
 
   const handleLocationSelect = (
-    location: {
-      description: string;
-      coordinates: Coordinates;
-    } | null
+    location: { description: string; coordinates: Coordinates } | null
   ) => {
     if (!location) return;
 
@@ -158,7 +181,6 @@ export default function AddressForm({
     if (match) {
       const lat = parseFloat(match[1]);
       const lng = parseFloat(match[2]);
-
       const coordinates = { lat, lng };
       resolveLocationFromCoordinates(coordinates);
     } else if (isPlusCode) {
@@ -251,8 +273,38 @@ export default function AddressForm({
     }
   };
 
-  const handleSubmit = () => {
-    onSubmit(formData);
+  const handleSubmit = async () => {
+    // Reset validation errors
+    setValidationErrors({});
+    // Perform client-side validation
+    const errors: { nick_name?: string; flatNo?: string } = {};
+    if (!formData.nick_name.trim()) {
+      errors.nick_name = "Nick name is required";
+    }
+    if (!formData.flatNo.trim()) {
+      errors.flatNo = "Flat no is required";
+    }
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+
+    try {
+      // Await the onSubmit callback (which should throw if backend returns an error)
+      await onSubmit(formData);
+    } catch (err: any) {
+      // Example: backend error response structure:
+      // { "message": "Failed to update address", "error": "The nick name field is required." }
+      const backendError = err.response?.data?.error;
+      if (backendError) {
+        if (backendError.toLowerCase().includes("nick name")) {
+          setValidationErrors((prev) => ({ ...prev, nick_name: backendError }));
+        }
+        if (backendError.toLowerCase().includes("flat no")) {
+          setValidationErrors((prev) => ({ ...prev, flatNo: backendError }));
+        }
+      }
+    }
   };
 
   return (
@@ -288,19 +340,31 @@ export default function AddressForm({
                 placeholder="Enter Nick Name"
                 className="flex-1 h-11"
               />
+              {validationErrors.nick_name && (
+                <p className="text-red-500 text-sm mt-1">
+                  {validationErrors.nick_name}
+                </p>
+              )}
             </div>
 
             {/* Flat/Street Fields */}
             <div className="grid grid-cols-2 gap-4 mb-4">
-              <Input
-                type="text"
-                value={formData.flatNo}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, flatNo: e.target.value }))
-                }
-                placeholder="House / Apartment / Flat No."
-                className="h-11"
-              />
+              <div className="flex flex-col">
+                <Input
+                  type="text"
+                  value={formData.flatNo}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, flatNo: e.target.value }))
+                  }
+                  placeholder="House / Apartment / Flat No."
+                  className="h-11"
+                />
+                {validationErrors.flatNo && (
+                  <p className="text-red-500 text-sm mt-1">
+                    {validationErrors.flatNo}
+                  </p>
+                )}
+              </div>
               <Input
                 type="text"
                 value={formData.street}
