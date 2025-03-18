@@ -17,6 +17,7 @@ interface Coordinates {
   lng: number;
 }
 
+// Updated interface to include nick_name
 interface AddressFormData {
   address: string;
   flatNo: string;
@@ -24,6 +25,7 @@ interface AddressFormData {
   direction?: string;
   isDefault: boolean;
   coordinates: Coordinates;
+  nick_name: string;
 }
 
 interface AddressFormProps {
@@ -32,6 +34,7 @@ interface AddressFormProps {
   initialStreet?: string;
   initialDirection?: string;
   initialCoordinates?: Coordinates;
+  initialNickName?: string;
   isDefault: boolean;
   onSubmit: (address: AddressFormData) => void;
   isSubmitting: boolean;
@@ -48,6 +51,7 @@ export default function AddressForm({
   initialDirection,
   initialStreet,
   initialCoordinates,
+  initialNickName = "",
   isDefault,
   onSubmit,
   isSubmitting,
@@ -58,13 +62,14 @@ export default function AddressForm({
     street: initialStreet || "",
     direction: initialDirection || "",
     isDefault: isDefault,
-    coordinates: initialCoordinates || DEFAULT_COORDINATES, // Default to Dubai coordinates
+    coordinates: initialCoordinates || DEFAULT_COORDINATES,
+    nick_name: initialNickName,
   });
 
   const [mapIsMoving, setMapIsMoving] = useState(false);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const previousCenter = useRef<Coordinates | null>(null); // To track the last known center
-  const shouldGeocode = useRef(true); // To prevent unnecessary geocoding
+  const previousCenter = useRef<Coordinates | null>(null);
+  const shouldGeocode = useRef(true);
   const [clearInputTrigger, setClearInputTrigger] = useState(false);
   const libraries: Libraries = ["places"];
   const { isLoaded } = useLoadScript({
@@ -87,7 +92,6 @@ export default function AddressForm({
       lng: center.lng(),
     };
 
-    // Skip geocode call if the center hasn't changed
     if (
       previousCenter.current &&
       previousCenter.current.lat === newCoordinates.lat &&
@@ -97,9 +101,8 @@ export default function AddressForm({
       return;
     }
 
-    previousCenter.current = newCoordinates; // Update the previous center
+    previousCenter.current = newCoordinates;
 
-    // Call geocode service
     try {
       const geocoder = new window.google.maps.Geocoder();
       const result = await geocoder.geocode({ location: newCoordinates });
@@ -132,9 +135,8 @@ export default function AddressForm({
       coordinates: location.coordinates,
     }));
 
-    // Center map on selected location
     if (mapRef.current) {
-      shouldGeocode.current = false; // Disable geocoding after a selection
+      shouldGeocode.current = false;
       mapRef.current.panTo(location.coordinates);
     }
   };
@@ -145,27 +147,23 @@ export default function AddressForm({
     const pastedData = e.clipboardData.getData("Text");
     console.log("[handlePasteLocation] Pasted data:", pastedData);
 
-    // Regular expression to match Google Maps links, Plus Codes, or short links
-    const regex = /@([-0-9.]+),([-0-9.]+)/; // For lat,lng in Google Maps full links
-    const plusCodeRegex = /^[A-Z0-9]{4}\+[A-Z0-9]{2}(?: [\w\s]+)?$/; // For Plus Codes (e.g., "4692+66 Dubai")
-    const shortLinkRegex = /^https:\/\/maps\.app\.goo\.gl\/.+$/; // For Google Maps short links
+    const regex = /@([-0-9.]+),([-0-9.]+)/;
+    const plusCodeRegex = /^[A-Z0-9]{4}\+[A-Z0-9]{2}(?: [\w\s]+)?$/;
+    const shortLinkRegex = /^https:\/\/maps\.app\.goo\.gl\/.+$/;
 
     const match = pastedData.match(regex);
     const isPlusCode = plusCodeRegex.test(pastedData);
     const isShortLink = shortLinkRegex.test(pastedData);
 
     if (match) {
-      // Handle pasted Google Maps URL with lat,lng
       const lat = parseFloat(match[1]);
       const lng = parseFloat(match[2]);
 
       const coordinates = { lat, lng };
       resolveLocationFromCoordinates(coordinates);
     } else if (isPlusCode) {
-      // Handle Plus Codes
       resolveLocationFromPlusCode(pastedData);
     } else if (isShortLink) {
-      // Handle short links
       resolveShortLink(pastedData);
     } else {
       console.warn("[handlePasteLocation] Invalid input format.");
@@ -174,7 +172,6 @@ export default function AddressForm({
 
   const resolveShortLink = async (shortLink: string) => {
     try {
-      // Expand the short link using a GET request
       const response = await fetch(shortLink, {
         method: "HEAD",
         redirect: "follow",
@@ -182,21 +179,18 @@ export default function AddressForm({
       const expandedUrl = response.url;
       console.log("[resolveShortLink] Expanded URL:", expandedUrl);
 
-      // Check if the expanded URL contains lat,lng or Plus Code
-      const regex = /@([-0-9.]+),([-0-9.]+)/; // For lat,lng
+      const regex = /@([-0-9.]+),([-0-9.]+)/;
       const plusCodeRegex = /^[A-Z0-9]{4}\+[A-Z0-9]{2}(?: [\w\s]+)?$/;
 
       const match = expandedUrl.match(regex);
       const isPlusCode = plusCodeRegex.test(expandedUrl);
 
       if (match) {
-        // Handle lat,lng from expanded URL
         const lat = parseFloat(match[1]);
         const lng = parseFloat(match[2]);
         const coordinates = { lat, lng };
         resolveLocationFromCoordinates(coordinates);
       } else if (isPlusCode) {
-        // Handle Plus Code from expanded URL
         resolveLocationFromPlusCode(expandedUrl);
       } else {
         console.warn(
@@ -220,7 +214,6 @@ export default function AddressForm({
           coordinates,
         }));
 
-        // Center map on location
         if (mapRef.current) {
           mapRef.current.panTo(coordinates);
         }
@@ -245,7 +238,6 @@ export default function AddressForm({
           coordinates,
         }));
 
-        // Center map on resolved coordinates
         if (mapRef.current) {
           mapRef.current.panTo(coordinates);
         }
@@ -278,6 +270,22 @@ export default function AddressForm({
                   setFormData((prev) => ({ ...prev, address: e.target.value }))
                 }
                 placeholder="Enter Address"
+                className="flex-1 h-11"
+              />
+            </div>
+
+            {/* Nick Name Input */}
+            <div className="flex items-center justify-between mb-4">
+              <Input
+                type="text"
+                value={formData.nick_name}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    nick_name: e.target.value,
+                  }))
+                }
+                placeholder="Enter Nick Name"
                 className="flex-1 h-11"
               />
             </div>
@@ -359,7 +367,7 @@ export default function AddressForm({
                           lng: position.coords.longitude,
                         };
                         if (mapRef.current) {
-                          shouldGeocode.current = true; // Enable geocoding for user interaction
+                          shouldGeocode.current = true;
                           mapRef.current.panTo(coordinates);
                         }
                       },
@@ -384,7 +392,7 @@ export default function AddressForm({
                   type="text"
                   placeholder="Enter or paste Google Maps link, Plus Code, or short link"
                   className="h-11"
-                  onPaste={handlePasteLocation} // Handle paste action
+                  onPaste={handlePasteLocation}
                 />
               </div>
             </div>
@@ -415,10 +423,10 @@ export default function AddressForm({
                   mapContainerClassName="w-full h-full"
                   onLoad={onMapLoad}
                   onDragStart={() => {
-                    shouldGeocode.current = true; // Enable geocoding for user interaction
+                    shouldGeocode.current = true;
                     setMapIsMoving(true);
                   }}
-                  onIdle={handleMapIdle} // Updated function
+                  onIdle={handleMapIdle}
                 ></GoogleMap>
               ) : (
                 <div className="w-full h-full bg-muted flex items-center justify-center">

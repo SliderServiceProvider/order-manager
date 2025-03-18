@@ -77,9 +77,15 @@ export function SavedCards() {
       const response = await api.get("/saved-payment-methods");
       const data = response.data.cards;
       setCards(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching cards:", error);
-      setError("An error occurred while fetching the cards.");
+      // Check if the error message is "User has no Stripe account"
+      if (error?.response?.data?.message === "User has no Stripe account") {
+        // Instead of showing an error, set cards to an empty array.
+        setCards([]);
+      } else {
+        setError("An error occurred while fetching the cards.");
+      }
     } finally {
       setLoading(false);
     }

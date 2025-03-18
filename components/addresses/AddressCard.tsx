@@ -196,11 +196,13 @@ export default function AddressCard() {
                       </div>
                     </div>
                     <div className="flex lg:flex-col justify-end lg:justify-center flex-1 gap-2">
-                      <Button variant="link" className="bg-gray-100 text-gray-700">
-                        <Link href={`/addresses/edit-address/${address.id}`}>
-                          Edit
-                        </Link>
-                      </Button>
+                      {/* <Button
+                        variant="link"
+                        className="bg-gray-100 text-gray-700"
+                      ></Button> */}
+                      <Link href={`/addresses/edit-address/${address.id}`} className="bg-gray-100 text-black p-2 rounded-md text-sm text-center">
+                        Edit
+                      </Link>
                       {address.is_primary ? (
                         <></>
                       ) : (
