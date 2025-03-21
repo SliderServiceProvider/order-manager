@@ -66,7 +66,7 @@ export default function DashboardPage(): JSX.Element {
       const response = await api.get("/order-manager/dashboardAnalytics");
       const data = response.data;
 
-      if (data.data.isAccountLocked===1){
+      if (data.data.isAccountLocked){
         setIsAccountLocked(data.data.isAccountLocked);
       }else{
         setIsAccountLocked(false);
@@ -80,7 +80,7 @@ export default function DashboardPage(): JSX.Element {
       setLocationsData(data.data.getLocations);
       setError(null);
 
-      if (data.data.isAccountLocked || data.data.invoice_reminder) {
+      if (data.data.isAccountLocked===1 || data.data.invoice_reminder) {
         setOpen(true);
       }
     } catch (err) {
