@@ -66,7 +66,12 @@ export default function DashboardPage(): JSX.Element {
       const response = await api.get("/order-manager/dashboardAnalytics");
       const data = response.data;
 
-      setIsAccountLocked(data.data.isAccountLocked);
+      if (data.data.isAccountLocked===1){
+        setIsAccountLocked(data.data.isAccountLocked);
+      }else{
+        setIsAccountLocked(false);
+      }
+        
       setInvoiceReminder(data.data.invoice_reminder);
       setKpiSummary(data.data.kpiSummary);
       setRecentTransactions(data.data.recentTransactions);

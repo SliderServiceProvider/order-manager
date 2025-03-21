@@ -983,7 +983,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         flat_no: dropoff.building,
         direction: dropoff.directions || "",
         receiver_phone_number: dropoff.receiver_phone_number,
-        cod_amount: dropoff.cod_amount,
+        cod_amount: dropoff.cod_amount || null,
         order_reference_number: dropoff.order_reference_number || null, // Fixed line
         save_address:
           index === currentDropoffIndex ? saveDropoffAddress : false,
