@@ -200,7 +200,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   useEffect(() => {
     const prefillData = localStorage.getItem("prefillOrderData");
     if (prefillData) {
-      const parsedData = JSON.parse(prefillData);      
+      const parsedData = JSON.parse(prefillData);
       // Extract COD amounts and receiver phone numbers from tasks
       let codFirst = null;
       let codSecond = null;
@@ -253,19 +253,39 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
           order_reference_number: parsedData.order_reference_number_two || "",
         });
       }
+      // Handle pickup address - ensure we're getting the correct data
+      let pickupAddress = "";
+      let pickupBuilding = "";
+      let pickupDirections = "";
+      let pickupLat = 24.4539;
+      let pickupLng = 54.3773;
+
+      if (parsedData.pickup) {
+        pickupAddress = parsedData.pickup.address || "";
+        pickupBuilding =
+          parsedData.pickup.flat_no || parsedData.pickup.building || "";
+        pickupDirections =
+          parsedData.pickup.direction || parsedData.pickup.directions || "";
+        pickupLat =
+          Number(parsedData.pickup.latitude) ||
+          Number(parsedData.pickup.lat) ||
+          24.4539;
+        pickupLng =
+          Number(parsedData.pickup.longitude) ||
+          Number(parsedData.pickup.lng) ||
+          54.3773;
+      }
 
       setFormData({
         pickup: {
-          address: parsedData.pickup.address || "",
-          // Try pickup.building, otherwise use pickup.flat_no
-          building:
-            parsedData.pickup.building || parsedData.pickup.flat_no || "",
-          directions:
-            parsedData.pickup.direction || parsedData.pickup.directions || "",
+          address: pickupAddress,
+          building: pickupBuilding,
+          directions: pickupDirections,
           location: {
-            lat: Number(parsedData.pickup.latitude) || 24.4539,
-            lng: Number(parsedData.pickup.longitude) || 54.3773,
+            lat: pickupLat,
+            lng: pickupLng,
           },
+          selectedSavedAddress: null,
         },
         dropoffs: dropoffs.length ? dropoffs : formData.dropoffs,
         package: {
@@ -277,13 +297,14 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       });
       // Directly move to the package screen for "order again"
       setCurrentStep(3);
-      localStorage.removeItem("prefillOrderData");
+      
     }
   }, []);
 
   useEffect(() => {
     if (currentStep === 3 && hexMapping) {
       fetchVehicles();
+      localStorage.removeItem("prefillOrderData");
     }
   }, [currentStep, hexMapping]);
 
@@ -626,7 +647,6 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
 
   const handleLocationSelectNew = (location: Locations | null) => {
     if (!location) {
-      console.log("No location selected");
       return;
     }
     if (currentStep === 1) {
@@ -1045,7 +1065,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     HTMLInputElement
   > = async (e) => {
     const pastedData = e.clipboardData.getData("Text");
-    console.log("[handlePasteLocation] Pasted data:", pastedData);
+   
     const regex = /@([-0-9.]+),([-0-9.]+)/;
     const plusCodeRegex = /^[A-Z0-9]{4}\+[A-Z0-9]{2}(?: [\w\s]+)?$/;
     const shortLinkRegex = /^https:\/\/maps\.app\.goo\.gl\/.+$/;
@@ -1214,7 +1234,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
           const result = await geocoder.geocode({ location: newLocation });
           const address =
             result.results?.[0]?.formatted_address || "Unknown Location";
-          console.log("Fetched address for new location:", address);
+          
           if (type === "pickup") {
             setFormData((prev) => ({
               ...prev,
@@ -1986,10 +2006,6 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
                     <button
                       key={card.id}
                       onClick={() => {
-                        console.log(
-                          "Selected Payment Method ID:",
-                          card.payment_method_id
-                        );
                         setPaymentMethod(card.payment_method_id);
                         setOrderPaymentMethod(5);
                       }}

@@ -176,7 +176,7 @@ export function Sidebar({ sidebarOpen, setSidebarOpen }: SidebarProps) {
           </div>
           <Dialog>
             <DialogTrigger asChild>
-              <Button className="w-full bg-gray-800">Logout</Button>
+              <Button className="w-full bg-gray-800 text-white">Logout</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
