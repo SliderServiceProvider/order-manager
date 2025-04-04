@@ -96,7 +96,7 @@ const useWebSocket = ({
             const { socket_id } = JSON.parse(data.data);
             try {
               const response = await fetch(
-                `${process.env.NEXT_PUBLIC_WSA_URL}/broadcasting/auth`,
+                `${process.env.NEXT_PUBLIC_API_URL}/broadcasting/auth`,
                 {
                   method: "POST",
                   headers: {
