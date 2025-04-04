@@ -32,7 +32,7 @@ const useWebSocket = ({
   const WEBSOCKET_URL = `${process.env.NEXT_PUBLIC_WEBSOCKET_URL}`;
   // const AUTH_TOKEN = localStorage.getItem("token");
   const AUTH_TOKEN =
-    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL29yZGVyc2VydmljZS1hcGkuc2xpZGVyLWFwcC5jb20vYXBpL3YxL2F1dGgvbG9naW5WaWFVc2VybmFtZSIsImlhdCI6MTc0MzE0ODk0NSwiZXhwIjoxNzQ1NzQwOTQ1LCJuYmYiOjE3NDMxNDg5NDUsImp0aSI6Ik16WW5zMDhtYUNpMXJ5ZUkiLCJzdWIiOiIzNTg4IiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.f4Fq9Lprp-7ep1PBqWPvuYDk3i2lxfnz437j3vqy0UM";
+    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL29yZGVyc2VydmljZS1hcGkuc2xpZGVyLWFwcC5jb20vYXBpL3YxL2F1dGgvbG9naW5WaWFVc2VybmFtZSIsImlhdCI6MTc0Mzc3NDQ3OSwiZXhwIjoxNzQ2MzY2NDc5LCJuYmYiOjE3NDM3NzQ0NzksImp0aSI6IkpIMDR1UGhUV29wcUV1am8iLCJzdWIiOiIzNTg4IiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.yeNggU7peZgdi5BpALrxdF_4BGxHeqEXkhfINicXmnM";
 
   // Helper function to safely parse JSON string data
   const safeJsonParse = (data: string) => {
