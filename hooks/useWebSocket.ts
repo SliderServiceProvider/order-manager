@@ -103,6 +103,7 @@ const useWebSocket = ({
                   headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${AUTH_TOKEN}`,
+                    type: "user",
                   },
                   body: JSON.stringify({
                     socket_id,
