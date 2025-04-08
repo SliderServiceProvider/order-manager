@@ -33,7 +33,7 @@ const useWebSocket = ({
   // const AUTH_TOKEN = localStorage.getItem("token");
   
   const AUTH_TOKEN =
-    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL2FwaS1zYW5kYm94LnNsaWRlci1hcHAuY29tL2FwaS92MS9hdXRoL2xvZ2luIiwiaWF0IjoxNzQzODMxMTU0LCJleHAiOjE3NDY0MjMxNTQsIm5iZiI6MTc0MzgzMTE1NCwianRpIjoiZ3puZGtIWm9MZEVENXd5SyIsInN1YiI6IjM1ODgiLCJwcnYiOiIyM2JkNWM4OTQ5ZjYwMGFkYjM5ZTcwMWM0MDA4NzJkYjdhNTk3NmY3In0.mLHEXI9-mKzA1FVbaG3SYZlqYLbB5wR46LUsPIDVIKQ";
+    "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL29yZGVyc2VydmljZS1hcGkuc2xpZGVyLWFwcC5jb20vYXBpL3YxL2F1dGgvbG9naW5WaWFVc2VybmFtZSIsImlhdCI6MTc0Mzc3NDQ3OSwiZXhwIjoxNzQ2MzY2NDc5LCJuYmYiOjE3NDM3NzQ0NzksImp0aSI6IkpIMDR1UGhUV29wcUV1am8iLCJzdWIiOiIzNTg4IiwicHJ2IjoiMjNiZDVjODk0OWY2MDBhZGIzOWU3MDFjNDAwODcyZGI3YTU5NzZmNyJ9.yeNggU7peZgdi5BpALrxdF_4BGxHeqEXkhfINicXmnM";
 
   // Helper function to safely parse JSON string data
   const safeJsonParse = (data: string) => {
