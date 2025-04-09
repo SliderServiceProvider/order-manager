@@ -61,7 +61,7 @@ const RESOLUTION = 6;
 // --- Types ---
 interface HexData {
   h3Index: string;
-  state_code: string | null;
+  zone_id: number | null;
 }
 type Location = {
   lat: number;
@@ -811,7 +811,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         const emirateDataPickup = hexMapping[pickupIndex];
         setPickupHexData({
           h3Index: pickupIndex,
-          state_code: emirateDataPickup ? emirateDataPickup.state_code : null,
+          zone_id: emirateDataPickup ? emirateDataPickup.zone_id : null,
         });
 
         // Compute hex data for every dropoff
@@ -824,9 +824,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
           const emirateDataDropoff = hexMapping[dropoffIndex];
           return {
             h3Index: dropoffIndex,
-            state_code: emirateDataDropoff
-              ? emirateDataDropoff.state_code
-              : null,
+            zone_id: emirateDataDropoff ? emirateDataDropoff.zone_id : null,
           };
         });
         setDropoffHexData(dropoffHexDataArray);
@@ -855,15 +853,15 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
           pickupIndex: {
             h3Index: pickupIndex,
             emirate: emirateDataPickup ? emirateDataPickup.name_en : null,
-            state_code: emirateDataPickup ? emirateDataPickup.state_code : null,
+            zone_id: emirateDataPickup ? emirateDataPickup.zone_id : null,
           },
           dropoffIndex: {
             h3Index: firstDropoffIndex,
             emirate: emirateDataFirstDropoff
               ? emirateDataFirstDropoff.name_en
               : null,
-            state_code: emirateDataFirstDropoff
-              ? emirateDataFirstDropoff.state_code
+            zone_id: emirateDataFirstDropoff
+              ? emirateDataFirstDropoff.zone_id
               : null,
           },
           service_type_id: service_type_id,
@@ -993,7 +991,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         save_address: savePickupAddress,
         saved_address_nickname: savePickupAddress ? pickupNickname : null,
         h3_index: pickupHexData ? pickupHexData.h3Index : null,
-        state_code: pickupHexData ? pickupHexData.state_code : null,
+        zone_id: pickupHexData ? pickupHexData.zone_id : null,
       },
       ...formData.dropoffs.map((dropoff, index) => ({
         task_type_id: index + 2, // drop-off tasks will be 2, 3, etc.
@@ -1012,18 +1010,16 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
             ? dropoffNickname
             : null,
         h3_index: dropoffHexData[index] ? dropoffHexData[index].h3Index : null,
-        state_code: dropoffHexData[index]
-          ? dropoffHexData[index].state_code
-          : null,
+        zone_id: dropoffHexData[index] ? dropoffHexData[index].zone_id : null,
       })),
     ];
 
     return {
       source: "order_manager",
       business_customer: userId,
-      service_type_id: service_type_id,
+      service_type: service_type_id,
       payment_type: isInvoiceUser ? 2 : 1,
-      vehicle_id: selectedVehicle?.id || null,
+      vehicle_type: selectedVehicle?.id || null,
       isVendorOrder: false,
       invoice_order: isInvoiceUser,
       schedule_time:
