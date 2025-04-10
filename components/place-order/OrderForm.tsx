@@ -297,7 +297,6 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       });
       // Directly move to the package screen for "order again"
       setCurrentStep(3);
-      
     }
   }, []);
 
@@ -486,15 +485,17 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     try {
       const response = await api.get("/order-manager/getPrimaryAddress");
       const data = response.data;
-      
+
       setIsInvoiceUser(data.invoice_order);
       setInvoiceReminder(data.invoice_reminder);
       setMaxCodAmount(data.max_cod_amount);
 
       // check user status
-      if (data.account_status=='locked') {
-       setIsAccountLocked(true);
-       setOpen(true);
+      if (data.account_status == "locked") {
+        setIsAccountLocked(true);
+      }
+      if (data.account_status == "locked" || data.invoice_reminder) {
+        setOpen(true);
       }
 
       if (data?.addresses && Array.isArray(data.addresses)) {
@@ -811,7 +812,6 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
       const pickupLat = formData.pickup.location.lat;
       const pickupLng = formData.pickup.location.lng;
       const pickupIndex = h3.latLngToCell(pickupLat, pickupLng, RESOLUTION);
-      
 
       // Compute hex data for every dropoff
       const dropoffHexDataArray = formData.dropoffs.map((dropoff) => {
@@ -822,7 +822,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
         );
         return {
           h3Index: dropoffIndex,
-          zone_id:1,
+          zone_id: 1,
         };
       });
       setDropoffHexData(dropoffHexDataArray);
@@ -1053,7 +1053,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     HTMLInputElement
   > = async (e) => {
     const pastedData = e.clipboardData.getData("Text");
-   
+
     const regex = /@([-0-9.]+),([-0-9.]+)/;
     const plusCodeRegex = /^[A-Z0-9]{4}\+[A-Z0-9]{2}(?: [\w\s]+)?$/;
     const shortLinkRegex = /^https:\/\/maps\.app\.goo\.gl\/.+$/;
@@ -1222,7 +1222,7 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
           const result = await geocoder.geocode({ location: newLocation });
           const address =
             result.results?.[0]?.formatted_address || "Unknown Location";
-          
+
           if (type === "pickup") {
             setFormData((prev) => ({
               ...prev,
