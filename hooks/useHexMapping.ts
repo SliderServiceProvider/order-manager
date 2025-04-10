@@ -12,20 +12,17 @@ export function useHexMapping() {
     async function fetchHexMapping() {
       try {
         setHexLoading(true);
-        const res = await fetch(
-          "https://insights.slider-app.com/api/hexMapping",
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            credentials: "omit",
-          }
-        );
-        console.log("Response from API:", res);
+        // Use your own proxy endpoint instead of the external API directly
+        const res = await fetch("/api/proxy", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
         if (!res.ok) {
           throw new Error(`Error fetching hexMapping: ${res.statusText}`);
         }
+
         const data = await res.json();
-        console.log("Received hexMapping data:", data);
         setHexMapping(data);
       } catch (err: any) {
         console.error("Error in useHexMapping hook:", err);
@@ -34,6 +31,7 @@ export function useHexMapping() {
         setHexLoading(false);
       }
     }
+
     fetchHexMapping();
   }, []);
 

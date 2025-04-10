@@ -803,77 +803,65 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
   const fetchVehicles = async () => {
     setLoadingVehicles(true);
     try {
-      if (hexMapping) {
-        // Compute pickup hex data
-        const pickupLat = formData.pickup.location.lat;
-        const pickupLng = formData.pickup.location.lng;
-        const pickupIndex = h3.latLngToCell(pickupLat, pickupLng, RESOLUTION);
-        const emirateDataPickup = hexMapping[pickupIndex];
-        setPickupHexData({
-          h3Index: pickupIndex,
-          zone_id: emirateDataPickup ? emirateDataPickup.zone_id : null,
-        });
+      // Compute pickup hex data
+      const pickupLat = formData.pickup.location.lat;
+      const pickupLng = formData.pickup.location.lng;
+      const pickupIndex = h3.latLngToCell(pickupLat, pickupLng, RESOLUTION);
+      
 
-        // Compute hex data for every dropoff
-        const dropoffHexDataArray = formData.dropoffs.map((dropoff) => {
-          const dropoffIndex = h3.latLngToCell(
-            dropoff.location.lat,
-            dropoff.location.lng,
-            RESOLUTION
-          );
-          const emirateDataDropoff = hexMapping[dropoffIndex];
-          return {
-            h3Index: dropoffIndex,
-            zone_id: emirateDataDropoff ? emirateDataDropoff.zone_id : null,
-          };
-        });
-        setDropoffHexData(dropoffHexDataArray);
-
-        // Use the first dropoff as a reference for the vehicle API call if needed
-        const firstDropoff = formData.dropoffs[0];
-        const firstDropoffIndex = h3.latLngToCell(
-          firstDropoff.location.lat,
-          firstDropoff.location.lng,
+      // Compute hex data for every dropoff
+      const dropoffHexDataArray = formData.dropoffs.map((dropoff) => {
+        const dropoffIndex = h3.latLngToCell(
+          dropoff.location.lat,
+          dropoff.location.lng,
           RESOLUTION
         );
-        const emirateDataFirstDropoff = hexMapping[firstDropoffIndex];
+        return {
+          h3Index: dropoffIndex,
+          zone_id:1,
+        };
+      });
+      setDropoffHexData(dropoffHexDataArray);
 
-        const locations = [
-          {
-            latitude: pickupLat,
-            longitude: pickupLng,
-          },
-          ...formData.dropoffs.map((dropoff) => ({
-            latitude: dropoff.location.lat,
-            longitude: dropoff.location.lng,
-          })),
-        ];
+      // Use the first dropoff as a reference for the vehicle API call if needed
+      const firstDropoff = formData.dropoffs[0];
+      const firstDropoffIndex = h3.latLngToCell(
+        firstDropoff.location.lat,
+        firstDropoff.location.lng,
+        RESOLUTION
+      );
 
-        const response = await api.post("/pickup-delivery/get-vehicles", {
-          pickupIndex: {
-            h3Index: pickupIndex,
-            emirate: emirateDataPickup ? emirateDataPickup.name_en : null,
-            zone_id: emirateDataPickup ? emirateDataPickup.zone_id : null,
-          },
-          dropoffIndex: {
-            h3Index: firstDropoffIndex,
-            emirate: emirateDataFirstDropoff
-              ? emirateDataFirstDropoff.name_en
-              : null,
-            zone_id: emirateDataFirstDropoff
-              ? emirateDataFirstDropoff.zone_id
-              : null,
-          },
-          service_type_id: service_type_id,
-          locations: locations,
-        });
-        const data = response.data;
-        setLoadingVehicles(false);
-        setLoadingPackageScreen(false);
-        setVehicles(data.data.vehicles);
-        setDistance(data.data.total_distance);
-        setDuration(data.data.total_duration);
-      }
+      const locations = [
+        {
+          latitude: pickupLat,
+          longitude: pickupLng,
+        },
+        ...formData.dropoffs.map((dropoff) => ({
+          latitude: dropoff.location.lat,
+          longitude: dropoff.location.lng,
+        })),
+      ];
+
+      const response = await api.post("/pickup-delivery/get-vehicles", {
+        pickupIndex: {
+          h3Index: "8643a02d7ffffff",
+          emirate: null,
+          zone_id: 1,
+        },
+        dropoffIndex: {
+          h3Index: "8643a02d7ffffff",
+          emirate: null,
+          zone_id: 1,
+        },
+        service_type_id: service_type_id,
+        locations: locations,
+      });
+      const data = response.data;
+      setLoadingVehicles(false);
+      setLoadingPackageScreen(false);
+      setVehicles(data.data.vehicles);
+      setDistance(data.data.total_distance);
+      setDuration(data.data.total_duration);
     } catch (error) {
       console.error("Error fetching vehicles:", error);
     } finally {
