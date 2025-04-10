@@ -486,12 +486,16 @@ export default function OrderForm({ deliveryType }: { deliveryType: string }) {
     try {
       const response = await api.get("/order-manager/getPrimaryAddress");
       const data = response.data;
-      setIsAccountLocked(data.isAccountLocked);
+      
       setIsInvoiceUser(data.invoice_order);
       setInvoiceReminder(data.invoice_reminder);
       setMaxCodAmount(data.max_cod_amount);
 
-      if (data.isAccountLocked || data.invoice_reminder) setOpen(true);
+      // check user status
+      if (data.account_status=='locked') {
+       setIsAccountLocked(true);
+       setOpen(true);
+      }
 
       if (data?.addresses && Array.isArray(data.addresses)) {
         const transformedAddresses = data.addresses.map(transformAddress);

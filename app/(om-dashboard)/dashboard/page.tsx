@@ -66,12 +66,14 @@ export default function DashboardPage(): JSX.Element {
       const response = await api.get("/order-manager/dashboardAnalytics");
       const data = response.data;
 
-      if (data.data.isAccountLocked){
-        setIsAccountLocked(data.data.isAccountLocked);
-      }else{
-        setIsAccountLocked(false);
+      // check user status
+      if (data.data.account_status == "locked") {
+        setIsAccountLocked(true);
       }
-        
+      if (data.data.account_status == "locked" || data.data.invoice_reminder) {
+        setOpen(true);
+      }
+
       setInvoiceReminder(data.data.invoice_reminder);
       setKpiSummary(data.data.kpiSummary);
       setRecentTransactions(data.data.recentTransactions);
@@ -80,7 +82,7 @@ export default function DashboardPage(): JSX.Element {
       setLocationsData(data.data.getLocations);
       setError(null);
 
-      if (data.data.isAccountLocked===1 || data.data.invoice_reminder) {
+      if (data.data.isAccountLocked === 1 || data.data.invoice_reminder) {
         setOpen(true);
       }
     } catch (err) {
